@@ -34,7 +34,18 @@ ghc-options:
 - -Wredundant-constraints
 
 library:
+  exposed-modules:
+  - Data.Number.Flint.Arb
   source-dirs: src
+  default-extensions:
+    - CApiFFI
+    - ForeignFunctionInterface
+  include-dirs: csrc
+  install-includes:
+    - arb.h
+  c-sources:
+    - arb.c
+  extra-libraries: flint
 
 executables:
   flint3hs-exe:
