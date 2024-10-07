@@ -25,14 +25,27 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Data.Number.Flint.Arb
   other-modules:
+      Data.Number.Flint.Arf
+      Data.Number.Flint.Mag
       Paths_flint3hs
   autogen-modules:
       Paths_flint3hs
   hs-source-dirs:
       src
+  default-extensions:
+      CApiFFI
+      ForeignFunctionInterface
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
+  include-dirs:
+      csrc
+  install-includes:
+      arb.h
+  c-sources:
+      csrc/arb.c
+  extra-libraries:
+      flint
   build-depends:
       base >=4.7 && <5
   default-language: Haskell2010

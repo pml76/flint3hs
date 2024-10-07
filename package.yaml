@@ -44,7 +44,7 @@ library:
   install-includes:
     - arb.h
   c-sources:
-    - arb.c
+    - csrc/arb.c
   extra-libraries: flint
 
 executables:

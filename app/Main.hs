@@ -1,6 +1,9 @@
 module Main (main) where
 
-import Lib
+import Data.Number.Flint.Arb
 
 main :: IO ()
-main = someFunc
+main = do
+    x <- arb_new
+    arb_drop x
+    print "done!"
