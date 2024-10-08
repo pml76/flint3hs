@@ -28,6 +28,8 @@ library
       Data.Number.Flint.Arb
   other-modules:
       Data.Number.Flint.Arf
+      Data.Number.Flint.Fmpq
+      Data.Number.Flint.Fmpz
       Data.Number.Flint.Mag
       Paths_flint3hs
   autogen-modules:

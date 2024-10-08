@@ -22,9 +22,11 @@ void arb_vec_drop(arb_ptr t, ulong n) {
 
 
 arf_struct* arb_midref_ (arb_t x) {
-    return (&(x)->mid);
+    return arb_midref(x); 
 }
 
 mag_struct* arb_radref_( arb_t x ) {
-    return (&(x)->rad);
+    return arb_radref(x); 
 }
+
+
