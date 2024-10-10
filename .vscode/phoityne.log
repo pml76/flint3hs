@@ -1,0 +1,2 @@
+2024-10-09 20:20:31.183890460000 [5894(ThreadId 37)] ERROR APP - user error (<getModule> loaded module can not find from path. </mnt/c/Users/peter/GHC/flint3hs/app/Main.hs> [("Main","/mnt/c/Users/peter/GHC/flint3hs/test/Spec.hs")])
+2024-10-09 20:21:11.974546576000 [6405(ThreadId 37)] ERROR APP - user error (<getModule> loaded module can not find from path. </mnt/c/Users/peter/GHC/flint3hs/app/Main.hs> [("Main","/mnt/c/Users/peter/GHC/flint3hs/test/Spec.hs")])

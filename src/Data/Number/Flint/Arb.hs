@@ -52,6 +52,17 @@ module Data.Number.Flint.Arb (
   , arb_dump_str
   , arb_load_str
 
+  -- * Random number generation
+  , arb_randtest
+  , arb_randtest_exact
+  , arb_randtest_positive
+  , arb_randtest_precise
+  , arb_randtest_special
+  , arb_randtest_wide
+  , arb_get_rand_fmpq
+  , arb_urandom
+
+  -- * Radius and interval operations
 
 ) where
 
@@ -59,6 +70,7 @@ import Data.Number.Flint.Arf ( ArfC )
 import Data.Number.Flint.Mag ( MagC )
 import Data.Number.Flint.Fmpz( FmpzC )
 import Data.Number.Flint.Fmpq( FmpqC )
+import Data.Number.Flint.Flint ( FlintRandC )
 import Foreign.Ptr ( Ptr )
 import Foreign.C.Types ( CULong(..), CLong(..), CInt(..), CDouble(..) )
 import Foreign.C.String ( CString )
@@ -348,3 +360,292 @@ foreign import capi safe "flint/arb.h" arb_load_str :: Ptr ArbC -- ^ x
                                                     -> IO CInt
 -- ^ Sets @x@ to the serialized representation given in @str@. Returns a
 -- nonzero value if @str@ is not formatted correctly (see :@arb_dump_str@).
+
+
+
+ 
+-------------------------------------------------------------------------------
+
+foreign import capi safe "flint/arb.h arb_randtest" arb_randtest :: Ptr ArbC         -- ^ x
+                                                                -> Ptr FlintRandC   -- ^ state
+                                                                -> CLong            -- ^ prec
+                                                                -> CLong            -- ^ mag_bits
+                                                                -> IO ()
+-- ^ Generates a random ball. The midpoint and radius will both be finite.
+
+foreign import capi safe "flint/arb.h arb_randtest_exact" arb_randtest_exact :: Ptr ArbC        -- ^ x
+                                                                             -> Ptr FlintRandC  -- ^ state
+                                                                             -> CLong           -- ^ prec
+                                                                             -> CLong           -- ^ mag_bits
+                                                                             -> IO ()
+-- ^ Generates a random number with zero radius.
+
+foreign import capi safe "flint/arb.h arb_randtest_precise" arb_randtest_precise :: Ptr ArbC        -- ^ x
+                                                                                 -> Ptr FlintRandC  -- ^ state
+                                                                                 -> CLong           -- ^ prec
+                                                                                 -> CLong           -- ^ mag_bits
+                                                                                 -> IO ()
+-- ^ Generates a random number with radius around \(2^{-\text{prec}}\) the magnitude of the midpoint.
+
+
+foreign import capi safe "flint/arb.h arb_randtest_positive" arb_randtest_positive :: Ptr ArbC        -- ^ x
+                                                                                   -> Ptr FlintRandC  -- ^ state
+                                                                                   -> CLong           -- ^ prec
+                                                                                   -> CLong           -- ^ mag_bits
+                                                                                   -> IO ()
+-- ^ Generates a random precise number which is guaranteed to be positive.
+
+foreign import capi safe "flint/arb.h arb_randtest_wide" arb_randtest_wide :: Ptr ArbC        -- ^ x
+                                                                           -> Ptr FlintRandC  -- ^ state
+                                                                           -> CLong           -- ^ prec
+                                                                           -> CLong           -- ^ mag_bits
+                                                                           -> IO ()
+-- ^ Generates a random number with midpoint and radius chosen independently,
+-- possibly giving a very large interval.
+
+
+foreign import capi safe "flint/arb.h arb_randtest_special" arb_randtest_special :: Ptr ArbC        -- ^ x
+                                                                                 -> Ptr FlintRandC  -- ^ state
+                                                                                 -> CLong           -- ^ prec
+                                                                                 -> CLong           -- ^ mag_bits
+                                                                                 -> IO ()
+-- ^ Generates a random interval, possibly having NaN or an infinity as the midpoint 
+-- and possibly having an infinite radius.
+
+
+foreign import capi safe "flint/arb.h arb_get_rand_fmpq" arb_get_rand_fmpq :: Ptr FmpqC       -- ^ q
+                                                                           -> Ptr FlintRandC  -- ^ state
+                                                                           -> Ptr ArbC        -- ^ x
+                                                                           -> CLong           -- ^ bits
+                                                                           -> IO ()
+-- ^ Sets @q@ to a random rational number from the interval represented by @x@.
+-- A denominator is chosen by multiplying the binary denominator of @x@
+-- by a random integer up to @bits@ bits.
+--
+-- The outcome is undefined if the midpoint or radius of @x@ is non-finite,
+-- or if the exponent of the midpoint or radius is so large or small
+-- that representing the endpoints as exact rational numbers would
+-- cause overflows.
+
+foreign import capi safe "flint/arb.h arb_urandom" arb_urandom :: Ptr ArbC        -- ^ x
+                                                               -> Ptr FlintRandC  -- ^ state
+                                                               -> CLong           -- ^ prec
+                                                               -> IO ()
+-- ^ Sets @x@ to a uniformly distributed random number in the interval
+-- \([0, 1]\). The method uses rounding from integers to floats, hence the
+-- radius might not be \(0\).
+
+
+
+
+-------------------------------------------------------------------------------
+
+foreign import capi safe "flint/arb.h arb_get_mid_arb" arb_get_mid_arb :: Ptr ArbC -- ^ m
+                                                                       -> Ptr ArbC -- ^ x
+-- ^ Sets @m@ to the midpoint of @x@.
+
+.. function:: void arb_get_rad_arb(arb_t r, const arb_t x)
+
+    Sets *r* to the radius of *x*.
+
+.. function:: void arb_add_error_arf(arb_t x, const arf_t err)
+
+.. function:: void arb_add_error_mag(arb_t x, const mag_t err)
+
+.. function:: void arb_add_error(arb_t x, const arb_t err)
+
+    Adds the absolute value of *err* to the radius of *x* (the operation
+    is done in-place).
+
+.. function:: void arb_add_error_2exp_si(arb_t x, slong e)
+
+.. function:: void arb_add_error_2exp_fmpz(arb_t x, const fmpz_t e)
+
+    Adds `2^e` to the radius of *x*.
+
+.. function:: void arb_union(arb_t z, const arb_t x, const arb_t y, slong prec)
+
+    Sets *z* to a ball containing both *x* and *y*.
+
+.. function:: int arb_intersection(arb_t z, const arb_t x, const arb_t y, slong prec)
+
+    If *x* and *y* overlap according to :func:`arb_overlaps`,
+    then *z* is set to a ball containing the intersection of *x* and *y*
+    and a nonzero value is returned.
+    Otherwise zero is returned and the value of *z* is undefined.
+    If *x* or *y* contains NaN, the result is NaN.
+
+.. function:: void arb_nonnegative_part(arb_t res, const arb_t x)
+
+    Sets *res* to the intersection of *x* with `[0,\infty]`. If *x* is
+    nonnegative, an exact copy is made. If *x* is finite and contains negative
+    numbers, an interval of the form `[r/2 \pm r/2]` is produced, which
+    certainly contains no negative points.
+    In the special case when *x* is strictly negative, *res* is set to zero.
+
+.. function:: void arb_get_abs_ubound_arf(arf_t u, const arb_t x, slong prec)
+
+    Sets *u* to the upper bound for the absolute value of *x*,
+    rounded up to *prec* bits. If *x* contains NaN, the result is NaN.
+
+.. function:: void arb_get_abs_lbound_arf(arf_t u, const arb_t x, slong prec)
+
+    Sets *u* to the lower bound for the absolute value of *x*,
+    rounded down to *prec* bits. If *x* contains NaN, the result is NaN.
+
+.. function:: void arb_get_ubound_arf(arf_t u, const arb_t x, slong prec)
+
+    Sets *u* to the upper bound for the value of *x*,
+    rounded up to *prec* bits. If *x* contains NaN, the result is NaN.
+
+.. function:: void arb_get_lbound_arf(arf_t u, const arb_t x, slong prec)
+
+    Sets *u* to the lower bound for the value of *x*,
+    rounded down to *prec* bits. If *x* contains NaN, the result is NaN.
+
+.. function:: void arb_get_mag(mag_t z, const arb_t x)
+
+    Sets *z* to an upper bound for the absolute value of *x*. If *x* contains
+    NaN, the result is positive infinity.
+
+.. function:: void arb_get_mag_lower(mag_t z, const arb_t x)
+
+    Sets *z* to a lower bound for the absolute value of *x*. If *x* contains
+    NaN, the result is zero.
+
+.. function:: void arb_get_mag_lower_nonnegative(mag_t z, const arb_t x)
+
+    Sets *z* to a lower bound for the signed value of *x*, or zero
+    if *x* overlaps with the negative half-axis. If *x* contains NaN,
+    the result is zero.
+
+.. function:: void arb_get_interval_fmpz_2exp(fmpz_t a, fmpz_t b, fmpz_t exp, const arb_t x)
+
+    Computes the exact interval represented by *x*, in the form of an integer
+    interval multiplied by a power of two, i.e. `x = [a, b] \times 2^{\text{exp}}`.
+    The result is normalized by removing common trailing zeros
+    from *a* and *b*.
+
+    This method aborts if *x* is infinite or NaN, or if the difference between
+    the exponents of the midpoint and the radius is so large that allocating
+    memory for the result fails.
+
+    Warning: this method will allocate a huge amount of memory to store
+    the result if the exponent difference is huge. Memory allocation could
+    succeed even if the required space is far larger than the physical
+    memory available on the machine, resulting in swapping. It is recommended
+    to check that the midpoint and radius of *x* both are within a
+    reasonable range before calling this method.
+
+.. function:: void arb_set_interval_mag(arb_t x, const mag_t a, const mag_t b, slong prec)
+
+.. function:: void arb_set_interval_arf(arb_t x, const arf_t a, const arf_t b, slong prec)
+
+.. function:: void arb_set_interval_mpfr(arb_t x, const mpfr_t a, const mpfr_t b, slong prec)
+
+    Sets *x* to a ball containing the interval `[a, b]`. We
+    require that `a \le b`.
+
+.. function:: void arb_set_interval_neg_pos_mag(arb_t x, const mag_t a, const mag_t b, slong prec)
+
+    Sets *x* to a ball containing the interval `[-a, b]`.
+
+.. function:: void arb_get_interval_arf(arf_t a, arf_t b, const arb_t x, slong prec)
+
+.. function:: void arb_get_interval_mpfr(mpfr_t a, mpfr_t b, const arb_t x)
+
+    Constructs an interval `[a, b]` containing the ball *x*. The MPFR version
+    uses the precision of the output variables.
+
+.. function:: slong arb_rel_error_bits(const arb_t x)
+
+    Returns the effective relative error of *x* measured in bits, defined as
+    the difference between the position of the top bit in the radius
+    and the top bit in the midpoint, plus one.
+    The result is clamped between plus/minus *ARF_PREC_EXACT*.
+
+.. function:: slong arb_rel_accuracy_bits(const arb_t x)
+
+    Returns the effective relative accuracy of *x* measured in bits,
+    equal to the negative of the return value from :func:`arb_rel_error_bits`.
+
+.. function:: slong arb_rel_one_accuracy_bits(const arb_t x)
+
+    Given a ball with midpoint *m* and radius *r*, returns an approximation of
+    the relative accuracy of `[\max(1,|m|) \pm r]` measured in bits.
+
+.. function:: slong arb_bits(const arb_t x)
+
+    Returns the number of bits needed to represent the absolute value
+    of the mantissa of the midpoint of *x*, i.e. the minimum precision
+    sufficient to represent *x* exactly. Returns 0 if the midpoint
+    of *x* is a special value.
+
+.. function:: void arb_trim(arb_t y, const arb_t x)
+
+    Sets *y* to a trimmed copy of *x*: rounds *x* to a number of bits
+    equal to the accuracy of *x* (as indicated by its radius),
+    plus a few guard bits. The resulting ball is guaranteed to
+    contain *x*, but is more economical if *x* has
+    less than full accuracy.
+
+.. function:: int arb_get_unique_fmpz(fmpz_t z, const arb_t x)
+
+    If *x* contains a unique integer, sets *z* to that value and returns
+    nonzero. Otherwise (if *x* represents no integers or more than one integer),
+    returns zero.
+
+    This method aborts if there is a unique integer but that integer
+    is so large that allocating memory for the result fails.
+
+    Warning: this method will allocate a huge amount of memory to store
+    the result if there is a unique integer and that integer is huge.
+    Memory allocation could succeed even if the required space is far
+    larger than the physical memory available on the machine, resulting
+    in swapping. It is recommended to check that the midpoint of *x* is
+    within a reasonable range before calling this method.
+
+.. function:: void arb_floor(arb_t y, const arb_t x, slong prec)
+              void arb_ceil(arb_t y, const arb_t x, slong prec)
+              void arb_trunc(arb_t y, const arb_t x, slong prec)
+              void arb_nint(arb_t y, const arb_t x, slong prec)
+
+    Sets *y* to a ball containing respectively, `\lfloor x \rfloor` and
+    `\lceil x \rceil`, `\operatorname{trunc}(x)`, `\operatorname{nint}(x)`,
+    with the midpoint of *y* rounded to at most *prec* bits.
+
+.. function:: void arb_get_fmpz_mid_rad_10exp(fmpz_t mid, fmpz_t rad, fmpz_t exp, const arb_t x, slong n)
+
+    Assuming that *x* is finite and not exactly zero, computes integers *mid*,
+    *rad*, *exp* such that `x \in [m-r, m+r] \times 10^e` and such that the
+    larger out of *mid* and *rad* has at least *n* digits plus a few guard
+    digits. If *x* is infinite or exactly zero, the outputs are all set
+    to zero.
+
+.. function:: int arb_can_round_arf(const arb_t x, slong prec, arf_rnd_t rnd)
+
+.. function:: int arb_can_round_mpfr(const arb_t x, slong prec, mpfr_rnd_t rnd)
+
+    Returns nonzero if rounding the midpoint of *x* to *prec* bits in
+    the direction *rnd* is guaranteed to give the unique correctly
+    rounded floating-point approximation for the real number represented by *x*.
+
+    In other words, if this function returns nonzero, applying
+    :func:`arf_set_round`, or :func:`arf_get_mpfr`, or :func:`arf_get_d`
+    to the midpoint of *x* is guaranteed to return a correctly rounded *arf_t*,
+    *mpfr_t* (provided that *prec* is the precision of the output variable),
+    or *double* (provided that *prec* is 53).
+    Moreover, :func:`arf_get_mpfr` is guaranteed to return the correct ternary
+    value according to MPFR semantics.
+
+    Note that the *mpfr* version of this function takes an MPFR rounding mode
+    symbol as input, while the *arf* version takes an *arf* rounding mode
+    symbol. Otherwise, the functions are identical.
+
+    This function may perform a fast, inexact test; that is, it may return
+    zero in some cases even when correct rounding actually is possible.
+
+    To be conservative, zero is returned when *x* is non-finite, even if it
+    is an "exact" infinity.
+
+    -}

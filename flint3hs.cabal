@@ -28,9 +28,11 @@ library
       Data.Number.Flint.Arb
   other-modules:
       Data.Number.Flint.Arf
+      Data.Number.Flint.Flint
       Data.Number.Flint.Fmpq
       Data.Number.Flint.Fmpz
       Data.Number.Flint.Mag
+      Data.Number.Mpfr.Mpfr
       Paths_flint3hs
   autogen-modules:
       Paths_flint3hs
@@ -48,6 +50,8 @@ library
       csrc/arb.c
   extra-libraries:
       flint
+      mpfr
+      gmp
   build-depends:
       base >=4.7 && <5
   default-language: Haskell2010

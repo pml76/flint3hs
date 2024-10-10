@@ -45,7 +45,10 @@ library:
     - arb.h
   c-sources:
     - csrc/arb.c
-  extra-libraries: flint
+  extra-libraries: 
+    - flint
+    - mpfr
+    - gmp     
 
 executables:
   flint3hs-exe:
