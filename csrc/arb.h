@@ -1,3 +1,5 @@
+
+#include <mpfr.h>
 #include <flint/arb.h>
 
 // memory mgmnt
