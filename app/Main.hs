@@ -1,9 +1,10 @@
 module Main (main) where
 
 import Data.Number.Flint.Arb
+import Data.Number.Flint.FlintVariable (FlintVariable (withFlintVariable))
 
 main :: IO ()
 main = do
-    x <- arb_new
-    arb_drop x
+    a <- arbCreate
+    withFlintVariable arbZero a
     print "done!"

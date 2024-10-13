@@ -35,7 +35,19 @@ ghc-options:
 
 library:
   exposed-modules:
+
+  # Flint
+  - Data.Number.Flint.Flint
   - Data.Number.Flint.Arb
+  - Data.Number.Flint.FlintVariable
+  - Data.Number.Flint.Arf 
+  - Data.Number.Flint.Fmpq
+  - Data.Number.Flint.Fmpz 
+  - Data.Number.Flint.Mag
+
+  # MPFR
+  - Data.Number.Mpfr.Mpfr 
+
   source-dirs: src
   default-extensions:
     - CApiFFI

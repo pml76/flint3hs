@@ -26,13 +26,14 @@ source-repository head
 library
   exposed-modules:
       Data.Number.Flint.Arb
-  other-modules:
+      Data.Number.Flint.FlintVariable
       Data.Number.Flint.Arf
-      Data.Number.Flint.Flint
       Data.Number.Flint.Fmpq
       Data.Number.Flint.Fmpz
       Data.Number.Flint.Mag
       Data.Number.Mpfr.Mpfr
+  other-modules:
+      Data.Number.Flint.Flint
       Paths_flint3hs
   autogen-modules:
       Paths_flint3hs
