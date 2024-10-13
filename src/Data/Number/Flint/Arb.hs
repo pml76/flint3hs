@@ -102,6 +102,94 @@ module Data.Number.Flint.Arb (
   arbGetFmpzMidRad10Exp,
   arbCanRoundArf,
   arbCanRoundMpfr,
+
+  -- * Comparisons
+  arbIsZero,
+  arbIsNonzero,
+  arbIsOne,
+  arbIsFinite,
+  arbIsExact,
+  arbIsInt,
+  arbIsInt2ExpSI,
+  arbEqual,
+  arbEqualSI,
+  arbIsPositive,
+  arbIsNonnegative,
+  arbIsNegative,
+  arbIsNonpositive,
+  arbOverlaps,
+  arbContains,
+  arbContainsArf,
+  arbContainsFmpq,
+  arbContainsFmpz,
+  arbContainsSI,
+  arbContainsMpfr,
+  arbContainsInt,
+  arbContainsZero,
+  arbContainsNegative,
+  arbContainsNonpositive,
+  arbContainsPositive,
+  arbContainsNonnegative,
+  arbContainsInterior,
+  arbEq,
+  arbNe,
+  arbLt,
+  arbGe,
+  arbLe,
+  arbGt,
+
+  -- * Arithmetic
+  arbNeg,
+  arbNegRound,
+  arbAbs,
+  arbNonnegativeAbs,
+  arbSgn,
+  arbSgnNonzero,
+  arbMin,
+  arbMax,
+  arbMinMax,
+  arbAdd,
+  arbAddArf,
+  arbAddUI,
+  arbAddSI,
+  arbAddFmpz,
+  arbAddFmpz2Exp,
+  arbSub,
+  arbSubArf,
+  arbSubSI,
+  arbSubUI,
+  arbSubFmpz,
+  arbMul,
+  arbMulArf,
+  arbMulSI,
+  arbMulUI,
+  arbMulFmpz,
+  arbMul2ExpFmpz,
+  arbMul2ExpSI,
+  arbAddMul,
+  arbAddMulArf,
+  arbAddMulSI,
+  arbAddMulUI,
+  arbAddMulFmpz,
+  arbSubMul,
+  arbSubMulArf,
+  arbSubMulSI,
+  arbSubMulUI,
+  arbSubMulFmpz,
+  arbFma,
+  arbFmaArf,
+  arbFmaSI,
+  arbFmaUI,
+  arbFmaFmpz,
+  arbInv,
+  arbDiv,
+  arbDivArf,
+  arbDivSI,
+  arbDivUI,
+  arbDivFmpz,
+  arbFmpzDivFmpz,
+  arbUIDiv,
+  arbDiv2ExpM1UI
 ) where
 
 import Data.Number.Flint.Arf (ArfRndC (..), ArfT (..))
@@ -1041,7 +1129,7 @@ foreign import capi safe "arb.h arb_trim"
 {- ^ Sets @y@ to a trimmed copy of @x@: rounds @x@ to a number of bits
 equal to the accuracy of @x@ (as indicated by its radius),
 plus a few guard bits. The resulting ball is guaranteed to
-contain *x*, but is more economical if *x* has
+contain @x@, but is more economical if @x@ has
 less than full accuracy.
 -}
 
@@ -1156,7 +1244,7 @@ In other words, if this function returns nonzero, applying
 @arf_set_round@, or @arf_get_mpfr@, or @arf_get_d@
 to the midpoint of @x@ is guaranteed to return a correctly rounded @ArfT@,
 @mpfr_t@ (provided that @prec@ is the precision of the output variable),
-or @double@ (provided that *prec* is 53).
+or @double@ (provided that @prec@ is 53).
 
 Moreover, @arf_get_mpfr@ is guaranteed to return the correct ternary
 value according to MPFR semantics.
@@ -1189,7 +1277,7 @@ In other words, if this function returns nonzero, applying
 @arf_set_round@, or @arf_get_mpfr@, or @arf_get_d@
 to the midpoint of @x@ is guaranteed to return a correctly rounded @ArfT@,
 @mpfr_t@ (provided that @prec@ is the precision of the output variable),
-or @double@ (provided that *prec* is 53).
+or @double@ (provided that @prec@ is 53).
 
 Moreover, @arf_get_mpfr@ is guaranteed to return the correct ternary
 value according to MPFR semantics.
@@ -1204,3 +1292,952 @@ zero in some cases even when correct rounding actually is possible.
 To be conservative, zero is returned when @x@ is non-finite, even if it
 is an "exact" infinity.
 -}
+
+-------------------------------------------------------------------------------
+
+foreign import capi safe "arb.h arb_is_zero"
+  arbIsZero ::
+    -- | x
+    ArbT ->
+    IO CInt
+-- ^ Returns nonzero iff the midpoint and radius of @x@ are both zero.
+
+foreign import capi safe "arb.h arb_is_nonzero"
+  arbIsNonzero ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff zero is not contained in the interval represented
+by @x@.
+-}
+
+foreign import capi safe "arb.h arb_is_one"
+  arbIsOne ::
+    -- | x
+    ArbT ->
+    IO CInt
+-- ^ Returns nonzero iff @x@ is exactly 1.
+
+foreign import capi safe "arb.h arb_is_finite"
+  arbIsFinite ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff the midpoint and radius of @x@ are both finite
+floating-point numbers, i.e. not infinities or NaN.
+-}
+
+foreign import capi safe "arb.h arb_is_exact"
+  arbIsExact ::
+    -- | x
+    ArbT ->
+    IO CInt
+-- ^ Returns nonzero iff the radius of @x@ is zero.
+
+foreign import capi safe "arb.h arb_is_int"
+  arbIsInt ::
+    -- | x
+    ArbT ->
+    IO CInt
+-- ^ Returns nonzero iff @x@ is an exact integer.
+
+foreign import capi safe "arb.h arb_is_int_2exp_si"
+  arbIsInt2ExpSI ::
+    -- | x
+    ArbT ->
+    -- | e
+    CLong ->
+    IO CInt
+-- ^ Returns nonzero iff @x@ exactly equals \(n 2^e\) for some integer @n@.
+
+foreign import capi safe "arb.h arb_equal"
+  arbEqual ::
+    -- | x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff @x@ and @y@ are equal as balls, i.e. have both the
+    same midpoint and radius.
+
+    Note that this is not the same thing as testing whether both
+    @x@ and @y@ certainly represent the same real number, unless
+    either @x@ or @y@ is exact (and neither contains NaN).
+    To test whether both operands *might* represent the same mathematical
+    quantity, use @arb_overlaps@ or @arb_contains@,
+    depending on the circumstance.
+-}
+
+foreign import capi safe "arb.h arb_equal_si"
+  arbEqualSI ::
+    -- | x
+    ArbT ->
+    -- | y
+    CLong ->
+    IO CInt
+-- ^ Returns nonzero iff @x@ is equal to the integer @y@.
+
+foreign import capi safe "arb.h arb_is_positive"
+  arbIsPositive ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff all points @p@ in the interval represented by @x@
+    satisfy \(p > 0\).
+    If @x@ contains NaN, returns zero.
+-}
+
+foreign import capi safe "arb.h arb_is_nonnegative"
+  arbIsNonnegative ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff all points @p@ in the interval represented by @x@
+    satisfy \(p \ge 0\).
+    If @x@ contains NaN, returns zero.
+-}
+
+foreign import capi safe "arb.h arb_is_negative"
+  arbIsNegative ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff all points @p@ in the interval represented by @x@
+    satisfy \(p < 0\).
+    If @x@ contains NaN, returns zero.
+-}
+
+foreign import capi safe "arb.h arb_is_nonpositive"
+  arbIsNonpositive ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff all points @p@ in the interval represented by @x@
+    satisfy \(p \le 0\).
+    If @x@ contains NaN, returns zero.
+-}
+
+foreign import capi safe "arb.h arb_overlaps"
+  arbOverlaps ::
+    -- | x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff @x@ and @y@ have some point in common.
+    If either @x@ or @y@ contains NaN, this function always returns nonzero
+    (as a NaN could be anything, it could in particular contain any
+    number that is included in the other operand).
+-}
+
+foreign import capi safe "arb.h arb_contains_arf"
+  arbContainsArf ::
+    -- | x
+    ArbT ->
+    -- | y
+    ArfT ->
+    IO CInt
+{- ^ Returns nonzero iff the given number (or ball) @y@ is contained in
+    the interval represented by @x@.
+
+    If @x@ contains NaN, this function always returns nonzero (as it
+    could represent anything, and in particular could represent all
+    the points included in @y@).
+    If @y@ contains NaN and @x@ does not, it always returns zero.
+-}
+
+foreign import capi safe "arb.h arb_contains_fmpq"
+  arbContainsFmpq ::
+    -- | x
+    ArbT ->
+    -- | y
+    FmpqT ->
+    IO CInt
+{- ^ Returns nonzero iff the given number (or ball) @y@ is contained in
+    the interval represented by @x@.
+
+    If @x@ contains NaN, this function always returns nonzero (as it
+    could represent anything, and in particular could represent all
+    the points included in @y@).
+    If @y@ contains NaN and @x@ does not, it always returns zero.
+-}
+
+foreign import capi safe "arb.h arb_contains_fmpz"
+  arbContainsFmpz ::
+    -- | x
+    ArbT ->
+    -- | y
+    FmpzT ->
+    IO CInt
+{- ^ Returns nonzero iff the given number (or ball) @y@ is contained in
+    the interval represented by @x@.
+
+    If @x@ contains NaN, this function always returns nonzero (as it
+    could represent anything, and in particular could represent all
+    the points included in @y@).
+    If @y@ contains NaN and @x@ does not, it always returns zero.
+-}
+
+foreign import capi safe "arb.h arb_contains_si"
+  arbContainsSI ::
+    -- | x
+    ArbT ->
+    -- | y
+    CLong ->
+    IO CInt
+{- ^ Returns nonzero iff the given number (or ball) @y@ is contained in
+    the interval represented by @x@.
+
+    If @x@ contains NaN, this function always returns nonzero (as it
+    could represent anything, and in particular could represent all
+    the points included in @y@).
+    If @y@ contains NaN and @x@ does not, it always returns zero.
+-}
+
+foreign import capi safe "arb.h arb_contains_mpfr"
+  arbContainsMpfr ::
+    -- | x
+    ArbT ->
+    -- | y
+    MpfrT ->
+    IO CInt
+{- ^ Returns nonzero iff the given number (or ball) @y@ is contained in
+    the interval represented by @x@.
+
+    If @x@ contains NaN, this function always returns nonzero (as it
+    could represent anything, and in particular could represent all
+    the points included in @y@).
+    If @y@ contains NaN and @x@ does not, it always returns zero.
+-}
+
+foreign import capi safe "arb.h arb_contains"
+  arbContains ::
+    -- | x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff the given number (or ball) @y@ is contained in
+    the interval represented by @x@.
+
+    If @x@ contains NaN, this function always returns nonzero (as it
+    could represent anything, and in particular could represent all
+    the points included in @y@).
+    If @y@ contains NaN and @x@ does not, it always returns zero.
+-}
+
+foreign import capi safe "arb.h arb_contains_int"
+  arbContainsInt ::
+    -- | x
+    ArbT ->
+    IO CInt
+-- ^ Returns nonzero iff the interval represented by @x@ contains an integer.
+
+foreign import capi safe "arb.h arb_contains_zero"
+  arbContainsZero ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff there is any point @p@ in the interval represented
+    by @x@ satisfying \(p = 0\).
+    If @x@ contains NaN, returns nonzero.
+-}
+
+foreign import capi safe "arb.h arb_contains_negative"
+  arbContainsNegative ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff there is any point @p@ in the interval represented
+    by @x@ satisfying \(p < 0\).
+    If @x@ contains NaN, returns nonzero.
+-}
+
+foreign import capi safe "arb.h arb_contains_nonpositive"
+  arbContainsNonpositive ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff there is any point @p@ in the interval represented
+    by @x@ satisfying \(p \le 0\).
+    If @x@ contains NaN, returns nonzero.
+-}
+
+foreign import capi safe "arb.h arb_contains_positive"
+  arbContainsPositive ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff there is any point @p@ in the interval represented
+    by @x@ satisfying \(p > 0\).
+    If @x@ contains NaN, returns nonzero.
+-}
+
+foreign import capi safe "arb.h arb_contains_nonnegative"
+  arbContainsNonnegative ::
+    -- | x
+    ArbT ->
+    IO CInt
+{- ^ Returns nonzero iff there is any point @p@ in the interval represented
+    by @x@ satisfying \(p \ge 0\).
+    If @x@ contains NaN, returns nonzero.
+-}
+
+foreign import capi safe "arb.h arb_contains_interior"
+  arbContainsInterior ::
+    -- |  x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+-- ^ Tests if @y@ is contained in the interior of @x@; that is, contained in @x@ and not touching either endpoint.
+
+foreign import capi safe "arb.h arb_eq"
+  arbEq ::
+    -- |  x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Performs the comparison \(x = y\) in a mathematically meaningful way.
+    If the comparison \(t \, (\operatorname{op}) \, u\) holds for all
+    \(t \in x\) and all \(u \in y\), returns 1.
+    Otherwise, returns 0.
+
+    The balls @x@ and @y@ are viewed as subintervals of the extended real line.
+    Note that balls that are formally different can compare as equal
+    under this definition: for example, \([-\infty \pm 3] = [-\infty \pm 0]\).
+    Also \([-\infty] \le [\infty \pm \infty]\).
+
+    The output is always 0 if either input has NaN as midpoint.
+-}
+
+foreign import capi safe "arb.h arb_ne"
+  arbNe ::
+    -- |  x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Performs the comparison \(x \ne y\) in a mathematically meaningful way.
+    If the comparison \(t \, (\operatorname{op}) \, u\) holds for all
+    \(t \in x\) and all \(u \in y\), returns 1.
+    Otherwise, returns 0.
+
+    The balls @x@ and @y@ are viewed as subintervals of the extended real line.
+    Note that balls that are formally different can compare as equal
+    under this definition: for example, \([-\infty \pm 3] = [-\infty \pm 0]\).
+    Also \([-\infty] \le [\infty \pm \infty]\).
+
+    The output is always 0 if either input has NaN as midpoint.
+-}
+
+foreign import capi safe "arb.h arb_lt"
+  arbLt ::
+    -- |  x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Performs the comparison \(x < y\) in a mathematically meaningful way.
+    If the comparison \(t \, (\operatorname{op}) \, u\) holds for all
+    \(t \in x\) and all \(u \in y\), returns 1.
+    Otherwise, returns 0.
+
+    The balls @x@ and @y@ are viewed as subintervals of the extended real line.
+    Note that balls that are formally different can compare as equal
+    under this definition: for example, \([-\infty \pm 3] = [-\infty \pm 0]\).
+    Also \([-\infty] \le [\infty \pm \infty]\).
+
+    The output is always 0 if either input has NaN as midpoint.
+-}
+
+foreign import capi safe "arb.h arb_le"
+  arbLe ::
+    -- |  x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Performs the comparison \(x \le y\) in a mathematically meaningful way.
+    If the comparison \(t \, (\operatorname{op}) \, u\) holds for all
+    \(t \in x\) and all \(u \in y\), returns 1.
+    Otherwise, returns 0.
+
+    The balls @x@ and @y@ are viewed as subintervals of the extended real line.
+    Note that balls that are formally different can compare as equal
+    under this definition: for example, \([-\infty \pm 3] = [-\infty \pm 0]\).
+    Also \([-\infty] \le [\infty \pm \infty]\).
+
+    The output is always 0 if either input has NaN as midpoint.
+-}
+
+foreign import capi safe "arb.h arb_gt"
+  arbGt ::
+    -- |  x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Performs the comparison \(x > y\) in a mathematically meaningful way.
+    If the comparison \(t \, (\operatorname{op}) \, u\) holds for all
+    \(t \in x\) and all \(u \in y\), returns 1.
+    Otherwise, returns 0.
+
+    The balls @x@ and @y@ are viewed as subintervals of the extended real line.
+    Note that balls that are formally different can compare as equal
+    under this definition: for example, \([-\infty \pm 3] = [-\infty \pm 0]\).
+    Also \([-\infty] \le [\infty \pm \infty]\).
+
+    The output is always 0 if either input has NaN as midpoint.
+-}
+
+foreign import capi safe "arb.h arb_ge"
+  arbGe ::
+    -- |  x
+    ArbT ->
+    -- | y
+    ArbT ->
+    IO CInt
+{- ^ Performs the comparison \(x \ge y\) in a mathematically meaningful way.
+    If the comparison \(t \, (\operatorname{op}) \, u\) holds for all
+    \(t \in x\) and all \(u \in y\), returns 1.
+    Otherwise, returns 0.
+
+    The balls @x@ and @y@ are viewed as subintervals of the extended real line.
+    Note that balls that are formally different can compare as equal
+    under this definition: for example, \([-\infty \pm 3] = [-\infty \pm 0]\).
+    Also \([-\infty] \le [\infty \pm \infty]\).
+
+    The output is always 0 if either input has NaN as midpoint.
+-}
+
+
+
+
+-------------------------------------------------------------------------------
+
+foreign import capi safe "arb.h arb_neg" arbNeg :: ArbT -- ^ y
+  -> ArbT -- ^ x 
+  -> IO ()
+-- ^ Sets @y@ to the negation of @x@.
+
+foreign import capi safe "arb.h arb_neg_round" arbNegRound :: ArbT -- ^ y
+  -> ArbT -- ^ x 
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @y@ to the negation of @x@.
+
+foreign import capi safe "arb.h arb_abs" arbAbs :: ArbT -- ^ y
+  -> ArbT -- ^ x 
+  -> IO ()
+-- ^ Sets @y@ to the absolute value of @x@. No attempt is made to improve the
+-- interval represented by @x@ if it contains zero.
+
+foreign import capi safe "arb.h arb_nonnegative_abs" arbNonnegativeAbs :: ArbT -- ^ y
+  -> ArbT -- ^ x 
+  -> IO ()
+-- ^ Sets @y@ to the absolute value of @x@. If @x@ is finite and it contains
+-- zero, sets @y@ to some interval `[r \pm r]` that contains the absolute
+-- value of @x@.
+
+foreign import capi safe "arb.h arb_sgn" arbSgn :: ArbT -- ^ y
+  -> ArbT -- ^ x 
+  -> IO ()
+-- ^ Sets @y@ to the sign function of @x@. The result is \([0 \pm 1]\) if
+-- @x@ contains both zero and nonzero numbers.
+
+foreign import capi safe "arb.h arb_sgn_nonzero" arbSgnNonzero :: ArbT -- ^ x 
+  -> IO CInt
+-- ^ Returns 1 if @x@ is strictly positive, -1 if @x@ is strictly negative,
+-- ^ and 0 if @x@ is zero or a ball containing zero so that its sign
+-- is not determined.
+
+foreign import capi safe "arb.h arb_min" arbMin :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @z@ to the maximum of @x@ and @y@.
+
+foreign import capi safe "arb.h arb_max" arbMax :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @z@ to the maximum of @x@ and @y@.
+
+
+foreign import capi safe "arb.h arb_minmax" arbMinMax :: ArbT -- ^ z1
+  -> ArbT -- ^ z2
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @z1@ and @z2@ respectively to the minimum and the maximum of @x@ and @y@.
+
+foreign import capi safe "arb.h arb_add" arbAdd :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x + y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_add_arf" arbAddArf :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArfT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x + y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_add_ui" arbAddUI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CULong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x + y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_add_si" arbAddSI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CLong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x + y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_add_fmpz" arbAddFmpz :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> FmpzT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x + y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+
+
+foreign import capi safe "arb.h arb_add_fmpz_2exp" arbAddFmpz2Exp :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> FmpzT -- ^ m
+  -> FmpzT -- ^ e
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets `z = x + m \cdot 2^e`, rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+
+
+foreign import capi safe "arb.h arb_sub" arbSub :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x - y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_sub_arf" arbSubArf :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArfT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x - y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_sub_ui" arbSubUI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CULong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x - y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_sub_si" arbSubSI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CLong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x - y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_sub_fmpz" arbSubFmpz :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> FmpzT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x - y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_mul" arbMul :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_mul_arf" arbMulArf :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArfT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_mul_si" arbMulSI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CLong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_mul_ui" arbMulUI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CULong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_mul_fmpz" arbMulFmpz :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> FmpzT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_mul_2exp_si" arbMul2ExpSI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CLong -- ^ e
+  -> IO ()
+-- ^ Sets @y@ to @x@ multiplied by \(2^e\).
+
+foreign import capi safe "arb.h arb_mul_2exp_fmpz" arbMul2ExpFmpz :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> FmpzT -- ^ e
+  -> IO ()
+-- ^ Sets @y@ to @x@ multiplied by \(2^e\).
+
+foreign import capi safe "arb.h arb_addmul" arbAddMul :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z + x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_addmul_arf" arbAddMulArf :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArfT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z + x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_addmul_si" arbAddMulSI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CLong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z + x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_addmul_ui" arbAddMulUI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CULong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z + x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_addmul_fmpz" arbAddMulFmpz :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> FmpzT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z + x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_submul" arbSubMul :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z - x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_submul_arf" arbSubMulArf :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArfT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z - x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_submul_si" arbSubMulSI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CLong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z - x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_submul_ui" arbSubMulUI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CULong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z - x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_submul_fmpz" arbSubMulFmpz :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> FmpzT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = z - x \cdot y\), rounded to @prec@ bits. The precision can be
+-- @arf_prec_exact@ provided that the result fits in memory.
+
+foreign import capi safe "arb.h arb_fma" arbFma :: ArbT -- ^ res
+  -> ArbT -- ^ x
+  -> ArbT -- ^ y
+  -> ArbT -- ^ z
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @res@ to \(x \cdot y + z`\). This is equivalent to an @addmul@ except
+-- that @res@ and @z@ can be separate variables.
+
+foreign import capi safe "arb.h arb_fma_arf" arbFmaArf :: ArbT -- ^ res
+  -> ArbT -- ^ x
+  -> ArfT -- ^ y
+  -> ArbT -- ^ z
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @res@ to \(x \cdot y + z`\). This is equivalent to an @addmul@ except
+-- that @res@ and @z@ can be separate variables.
+
+foreign import capi safe "arb.h arb_fma_si" arbFmaSI :: ArbT -- ^ res
+  -> ArbT -- ^ x
+  -> CLong -- ^ y
+  -> ArbT -- ^ z
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @res@ to \(x \cdot y + z`\). This is equivalent to an @addmul@ except
+-- that @res@ and @z@ can be separate variables.
+
+foreign import capi safe "arb.h arb_fma_ui" arbFmaUI :: ArbT -- ^ res
+  -> ArbT -- ^ x
+  -> CULong -- ^ y
+  -> ArbT -- ^ z
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @res@ to \(x \cdot y + z`\). This is equivalent to an @addmul@ except
+-- that @res@ and @z@ can be separate variables.
+
+foreign import capi safe "arb.h arb_fma_fmpz" arbFmaFmpz :: ArbT -- ^ res
+  -> ArbT -- ^ x
+  -> FmpzT -- ^ y
+  -> ArbT -- ^ z
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @res@ to \(x \cdot y + z`\). This is equivalent to an @addmul@ except
+-- that @res@ and @z@ can be separate variables.
+
+
+foreign import capi safe "arb.h arb_inv" arbInv :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @z@ to \(1 / x\).
+
+foreign import capi safe "arb.h arb_div" arbDiv :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(z = x / y\), rounded to @prec@ bits. If @y@ contains zero, @z@ is
+    set to \(0 \pm \infty\). Otherwise, error propagation uses the rule
+
+    \[
+        \left| \frac{x}{y} - \frac{x+\xi_1 a}{y+\xi_2 b} \right| =
+        \left|\frac{x \xi_2 b - y \xi_1 a}{y (y+\xi_2 b)}\right| \le
+        \frac{|xb|+|ya|}{|y| (|y|-b)}
+    \]
+
+    where \(-1 \le \xi_1, \xi_2 \le 1\), and
+    where the triangle inequality has been applied to the numerator and
+    the reverse triangle inequality has been applied to the denominator. -}
+
+foreign import capi safe "arb.h arb_div_arf" arbDivArf :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> ArfT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(z = x / y\), rounded to @prec@ bits. If @y@ contains zero, @z@ is
+    set to \(0 \pm \infty\). Otherwise, error propagation uses the rule
+
+    \[
+        \left| \frac{x}{y} - \frac{x+\xi_1 a}{y+\xi_2 b} \right| =
+        \left|\frac{x \xi_2 b - y \xi_1 a}{y (y+\xi_2 b)}\right| \le
+        \frac{|xb|+|ya|}{|y| (|y|-b)}
+    \]
+
+    where \(-1 \le \xi_1, \xi_2 \le 1\), and
+    where the triangle inequality has been applied to the numerator and
+    the reverse triangle inequality has been applied to the denominator. -}
+
+foreign import capi safe "arb.h arb_div_si" arbDivSI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CLong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(z = x / y\), rounded to @prec@ bits. If @y@ contains zero, @z@ is
+    set to \(0 \pm \infty\). Otherwise, error propagation uses the rule
+
+    \[
+        \left| \frac{x}{y} - \frac{x+\xi_1 a}{y+\xi_2 b} \right| =
+        \left|\frac{x \xi_2 b - y \xi_1 a}{y (y+\xi_2 b)}\right| \le
+        \frac{|xb|+|ya|}{|y| (|y|-b)}
+    \]
+
+    where \(-1 \le \xi_1, \xi_2 \le 1\), and
+    where the triangle inequality has been applied to the numerator and
+    the reverse triangle inequality has been applied to the denominator. -}
+
+foreign import capi safe "arb.h arb_div_ui" arbDivUI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CULong -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(z = x / y\), rounded to @prec@ bits. If @y@ contains zero, @z@ is
+    set to \(0 \pm \infty\). Otherwise, error propagation uses the rule
+
+    \[
+        \left| \frac{x}{y} - \frac{x+\xi_1 a}{y+\xi_2 b} \right| =
+        \left|\frac{x \xi_2 b - y \xi_1 a}{y (y+\xi_2 b)}\right| \le
+        \frac{|xb|+|ya|}{|y| (|y|-b)}
+    \]
+
+    where \(-1 \le \xi_1, \xi_2 \le 1\), and
+    where the triangle inequality has been applied to the numerator and
+    the reverse triangle inequality has been applied to the denominator. -}
+
+foreign import capi safe "arb.h arb_div_fmpz" arbDivFmpz :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> FmpzT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(z = x / y\), rounded to @prec@ bits. If @y@ contains zero, @z@ is
+    set to \(0 \pm \infty\). Otherwise, error propagation uses the rule
+
+    \[
+        \left| \frac{x}{y} - \frac{x+\xi_1 a}{y+\xi_2 b} \right| =
+        \left|\frac{x \xi_2 b - y \xi_1 a}{y (y+\xi_2 b)}\right| \le
+        \frac{|xb|+|ya|}{|y| (|y|-b)}
+    \]
+
+    where \(-1 \le \xi_1, \xi_2 \le 1\), and
+    where the triangle inequality has been applied to the numerator and
+    the reverse triangle inequality has been applied to the denominator. -}
+
+foreign import capi safe "arb.h arb_fmpz_div_fmpz" arbFmpzDivFmpz :: ArbT -- ^ z
+  -> FmpzT -- ^ x 
+  -> FmpzT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(z = x / y\), rounded to @prec@ bits. If @y@ contains zero, @z@ is
+    set to \(0 \pm \infty\). Otherwise, error propagation uses the rule
+
+    \[
+        \left| \frac{x}{y} - \frac{x+\xi_1 a}{y+\xi_2 b} \right| =
+        \left|\frac{x \xi_2 b - y \xi_1 a}{y (y+\xi_2 b)}\right| \le
+        \frac{|xb|+|ya|}{|y| (|y|-b)}
+    \]
+
+    where \(-1 \le \xi_1, \xi_2 \le 1\), and
+    where the triangle inequality has been applied to the numerator and
+    the reverse triangle inequality has been applied to the denominator. -}
+
+foreign import capi safe "arb.h arb_ui_div" arbUIDiv :: ArbT -- ^ z
+  -> CLong -- ^ x 
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(z = x / y\), rounded to @prec@ bits. If @y@ contains zero, @z@ is
+    set to \(0 \pm \infty\). Otherwise, error propagation uses the rule
+
+    \[
+        \left| \frac{x}{y} - \frac{x+\xi_1 a}{y+\xi_2 b} \right| =
+        \left|\frac{x \xi_2 b - y \xi_1 a}{y (y+\xi_2 b)}\right| \le
+        \frac{|xb|+|ya|}{|y| (|y|-b)}
+    \]
+
+    where \(-1 \le \xi_1, \xi_2 \le 1\), and
+    where the triangle inequality has been applied to the numerator and
+    the reverse triangle inequality has been applied to the denominator. -}
+
+foreign import capi safe "arb.h arb_div_2expm1_ui" arbDiv2ExpM1UI :: ArbT -- ^ z
+  -> ArbT -- ^ x 
+  -> CULong -- ^ n
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = x / (2^n - 1)\), rounded to @prec@ bits.
+
+
+Dot product
+-------------------------------------------------------------------------------
+
+.. function:: void arb_dot_precise(arb_t res, const arb_t s, int subtract, arb_srcptr x, slong xstep, arb_srcptr y, slong ystep, slong len, slong prec)
+              void arb_dot_simple(arb_t res, const arb_t s, int subtract, arb_srcptr x, slong xstep, arb_srcptr y, slong ystep, slong len, slong prec)
+              void arb_dot(arb_t res, const arb_t s, int subtract, arb_srcptr x, slong xstep, arb_srcptr y, slong ystep, slong len, slong prec)
+
+    Computes the dot product of the vectors *x* and *y*, setting
+    *res* to `s + (-1)^{subtract} \sum_{i=0}^{len-1} x_i y_i`.
+
+    The initial term *s* is optional and can be
+    omitted by passing *NULL* (equivalently, `s = 0`).
+    The parameter *subtract* must be 0 or 1.
+    The length *len* is allowed to be negative, which is equivalent
+    to a length of zero.
+    The parameters *xstep* or *ystep* specify a step length for
+    traversing subsequences of the vectors *x* and *y*; either can be
+    negative to step in the reverse direction starting from
+    the initial pointer.
+    Aliasing is allowed between *res* and *s* but not between
+    *res* and the entries of *x* and *y*.
+
+    The default version determines the optimal precision for each term
+    and performs all internal calculations using mpn arithmetic
+    with minimal overhead. This is the preferred way to compute a
+    dot product; it is generally much faster and more precise
+    than a simple loop.
+
+    The *simple* version performs fused multiply-add operations in
+    a simple loop. This can be used for
+    testing purposes and is also used as a fallback by the
+    default version when the exponents are out of range
+    for the optimized code.
+
+    The *precise* version computes the dot product exactly up to the
+    final rounding. This can be extremely slow and is only intended
+    for testing.
+
+.. function:: void arb_approx_dot(arb_t res, const arb_t s, int subtract, arb_srcptr x, slong xstep, arb_srcptr y, slong ystep, slong len, slong prec)
+
+    Computes an approximate dot product *without error bounds*.
+    The radii of the inputs are ignored (only the midpoints are read)
+    and only the midpoint of the output is written.
+
+.. function:: void arb_dot_ui(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const ulong * y, slong ystep, slong len, slong prec)
+              void arb_dot_si(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const slong * y, slong ystep, slong len, slong prec)
+              void arb_dot_uiui(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const ulong * y, slong ystep, slong len, slong prec)
+              void arb_dot_siui(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const ulong * y, slong ystep, slong len, slong prec)
+              void arb_dot_fmpz(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const fmpz * y, slong ystep, slong len, slong prec)
+
+    Equivalent to :func:`arb_dot`, but with integers in the array *y*.
+    The *uiui* and *siui* versions take an array of double-limb integers
+    as input; the *siui* version assumes that these represent signed
+    integers in two's complement form.
