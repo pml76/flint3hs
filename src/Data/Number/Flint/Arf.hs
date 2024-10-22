@@ -12,7 +12,7 @@ module Data.Number.Flint.Arf (
   arf_prec_exact,
 ) where
 
-import Foreign.C.Types (CLong (..))
+import Foreign.C.Types (CLLong (..))
 import Foreign.Ptr (Ptr)
 
 data ArfC
@@ -21,7 +21,7 @@ newtype ArfT where
   ArfT :: {_ArfT :: Ptr ArfC} -> ArfT
 
 newtype ArfRndC where
-  ArfRndC :: {_ArfRndC :: CLong} -> ArfRndC
+  ArfRndC :: {_ArfRndC :: CLLong} -> ArfRndC
   deriving (Show, Eq)
 
 {- | Specifies that the result of an operation should be rounded to

@@ -241,8 +241,7 @@ import Foreign.ForeignPtr (
  )
 import Foreign.Ptr (FunPtr, Ptr, nullPtr)
 import Data.Number.Flint.TH
-import Foreign.C (CULLong)
-import Foreign.C (CLLong)
+import Foreign.C ( CULLong(..), CLLong(..) )
 
 
 data ArbC
@@ -2408,7 +2407,7 @@ foreign import capi safe "arb.h arb_dot_fmpz" arbDotFmpz :: ArbT -- ^ res
     integers in two's complement form. -}
 
 
- 
+
 -------------------------------------------------------------------------------
 
 foreign import capi safe "arb.h arb_sqrt" arbSqrt :: ArbT -- ^ z
