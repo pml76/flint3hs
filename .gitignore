@@ -21,3 +21,12 @@ cabal.project.local
 cabal.project.local~
 .HTF/
 .ghc.environment.*
+bin/
+lib/
+lib64/
+sphinx/
+file.rst
+pyvenv.config
+pyvenv.cfg 
+debug.log 
+

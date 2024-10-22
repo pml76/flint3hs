@@ -34,6 +34,7 @@ library
       Data.Number.Flint.Mag
       Data.Number.Mpfr.Mpfr
   other-modules:
+      Data.Number.Flint.TH
       Paths_flint3hs
   autogen-modules:
       Paths_flint3hs
@@ -55,6 +56,13 @@ library
       gmp
   build-depends:
       base >=4.7 && <5
+    , casing
+    , containers
+    , mtl
+    , pandoc
+    , pandoc-types
+    , template-haskell
+    , text
   default-language: Haskell2010
 
 executable flint3hs-exe
@@ -68,7 +76,14 @@ executable flint3hs-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , casing
+    , containers
     , flint3hs
+    , mtl
+    , pandoc
+    , pandoc-types
+    , template-haskell
+    , text
   default-language: Haskell2010
 
 test-suite flint3hs-test
@@ -83,5 +98,12 @@ test-suite flint3hs-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , casing
+    , containers
     , flint3hs
+    , mtl
+    , pandoc
+    , pandoc-types
+    , template-haskell
+    , text
   default-language: Haskell2010

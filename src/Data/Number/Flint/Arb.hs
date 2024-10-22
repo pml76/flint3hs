@@ -3,7 +3,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-
+{-# LANGUAGE TemplateHaskell #-}
 module Data.Number.Flint.Arb (
   -- * Types, macros and constants
   Arb (..),
@@ -189,14 +189,46 @@ module Data.Number.Flint.Arb (
   arbDivFmpz,
   arbFmpzDivFmpz,
   arbUIDiv,
-  arbDiv2ExpM1UI
+  arbDiv2ExpM1UI,
+
+  -- * Dot product
+  arbDot,
+  arbDotPrecise,
+  arbDotSimple,
+  arbApproxDot,
+  arbDotUI,
+  arbDotUIUI,
+  arbDotSI,
+  arbDotSIUI,
+  arbDotFmpz,
+
+  -- * Powers and roots
+  arbSqrt,
+  arbSqrt1PM1,
+  arbSqrtArf,
+  arbSqrtFmpz,
+  arbSqrtUI,
+  arbSqrtpos,
+  arbHypot,
+  arbRsqrt,
+  arbRsqrtUI,
+  arbRoot,
+  arbRootUI,
+  arbSqr,
+  arbPow,
+  arbPowFmpzBinexp,
+  arbPowFmpz,
+  arbPowUI,
+  arbUIPowUI,
+  arbSIPowUI,
+  arbPowFmpq,
 ) where
 
 import Data.Number.Flint.Arf (ArfRndC (..), ArfT (..))
 import Data.Number.Flint.Flint (FlintRandT (..))
 import Data.Number.Flint.FlintVariable
 import Data.Number.Flint.Fmpq (FmpqT (..))
-import Data.Number.Flint.Fmpz (FmpzT (..))
+import Data.Number.Flint.Fmpz (FmpzT (..), FmpzVectorT(..))
 import Data.Number.Flint.Mag (MagT (..))
 import Data.Number.Mpfr.Mpfr (MpfrRndC (..), MpfrT (..))
 import Foreign.C.String (CString)
@@ -208,6 +240,10 @@ import Foreign.ForeignPtr (
   withForeignPtr,
  )
 import Foreign.Ptr (FunPtr, Ptr, nullPtr)
+import Data.Number.Flint.TH
+import Foreign.C (CULLong)
+import Foreign.C (CLLong)
+
 
 data ArbC
 
@@ -251,6 +287,7 @@ The following balls with an infinite or NaN component are permitted, and may be 
   mathematical correctness (this is currently not done automatically by the library).
 -}
 
+
 foreign import capi safe "arb.h arb_midref_" arbMidRef :: ArbT -> IO ArfT
 -- ^ Macro returning a pointer to the midpoint of x as an ArfT.
 
@@ -275,6 +312,11 @@ condensed, only printing the leading and trailing @m@ digits along with brackets
 
 newtype Arb where
   Arb :: {_Arb :: ForeignPtr ArbC} -> Arb
+
+$(generateFFIBindings cFunctions)
+-- foreign import capi safe "arb.h arb_new" arbNew :: IO ArbT
+-- ^ creates a new ArbC
+
 
 instance FlintVariable Arb ArbT where
   withFlintVariable :: (ArbT -> IO b) -> Arb -> IO b
@@ -324,8 +366,7 @@ arbCreateVector (VectorLength n) = do
       foreignPtr <- newForeignPtrEnv arbVecDrop env ptr
       return (ArbVector foreignPtr)
 
-foreign import capi safe "arb.h arb_new" arbNew :: IO ArbT
--- ^ creates a new ArbC
+
 
 foreign import capi safe "arb.h &arb_drop" arbDrop :: FunPtr (Ptr ArbC -> IO ())
 -- ^ destroys an ArbC
@@ -2187,57 +2228,381 @@ foreign import capi safe "arb.h arb_div_2expm1_ui" arbDiv2ExpM1UI :: ArbT -- ^ z
 -- ^ Sets \(z = x / (2^n - 1)\), rounded to @prec@ bits.
 
 
-Dot product
 -------------------------------------------------------------------------------
 
-.. function:: void arb_dot_precise(arb_t res, const arb_t s, int subtract, arb_srcptr x, slong xstep, arb_srcptr y, slong ystep, slong len, slong prec)
-              void arb_dot_simple(arb_t res, const arb_t s, int subtract, arb_srcptr x, slong xstep, arb_srcptr y, slong ystep, slong len, slong prec)
-              void arb_dot(arb_t res, const arb_t s, int subtract, arb_srcptr x, slong xstep, arb_srcptr y, slong ystep, slong len, slong prec)
+foreign import capi safe "arb.h arb_dot_precise" arbDotPrecise :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> ArbVectorT -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
+{- ^ Computes the dot product of the vectors @x@ and @y@, setting
+    @res@ to \(s + (-1)^{subtract} \sum_{i=0}^{len-1} x_i y_i\).
 
-    Computes the dot product of the vectors *x* and *y*, setting
-    *res* to `s + (-1)^{subtract} \sum_{i=0}^{len-1} x_i y_i`.
-
-    The initial term *s* is optional and can be
-    omitted by passing *NULL* (equivalently, `s = 0`).
-    The parameter *subtract* must be 0 or 1.
-    The length *len* is allowed to be negative, which is equivalent
+    The parameter @subtract@ must be 0 or 1.
+    The length @len@ is allowed to be negative, which is equivalent
     to a length of zero.
-    The parameters *xstep* or *ystep* specify a step length for
-    traversing subsequences of the vectors *x* and *y*; either can be
+    The parameters @xstep@ or @ystep@ specify a step length for
+    traversing subsequences of the vectors @x@ and @y@; either can be
     negative to step in the reverse direction starting from
     the initial pointer.
-    Aliasing is allowed between *res* and *s* but not between
-    *res* and the entries of *x* and *y*.
+    Aliasing is allowed between @res@ and @s@ but not between
+    @res@ and the entries of @x@ and @y@.
 
-    The default version determines the optimal precision for each term
-    and performs all internal calculations using mpn arithmetic
-    with minimal overhead. This is the preferred way to compute a
-    dot product; it is generally much faster and more precise
-    than a simple loop.
+    This version computes the dot product exactly up to the
+    final rounding. This can be extremely slow and is only intended
+    for testing. -}
 
-    The *simple* version performs fused multiply-add operations in
+
+foreign import capi safe "arb.h arb_dot_simple" arbDotSimple :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> ArbVectorT -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
+{- ^ Computes the dot product of the vectors @x@ and @y@, setting
+    @res@ to \(s + (-1)^{subtract} \sum_{i=0}^{len-1} x_i y_i\).
+
+    The parameter @subtract@ must be 0 or 1.
+    The length @len@ is allowed to be negative, which is equivalent
+    to a length of zero.
+    The parameters @xstep@ or @ystep@ specify a step length for
+    traversing subsequences of the vectors @x@ and @y@; either can be
+    negative to step in the reverse direction starting from
+    the initial pointer.
+    Aliasing is allowed between @res@ and @s@ but not between
+    @res@ and the entries of @x@ and @y@.
+
+    This version performs fused multiply-add operations in
     a simple loop. This can be used for
     testing purposes and is also used as a fallback by the
     default version when the exponents are out of range
-    for the optimized code.
+    for the optimized code. -}
 
-    The *precise* version computes the dot product exactly up to the
-    final rounding. This can be extremely slow and is only intended
-    for testing.
 
-.. function:: void arb_approx_dot(arb_t res, const arb_t s, int subtract, arb_srcptr x, slong xstep, arb_srcptr y, slong ystep, slong len, slong prec)
+foreign import capi safe "arb.h arb_dot" arbDot :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> ArbVectorT -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
 
-    Computes an approximate dot product *without error bounds*.
+{- ^ Computes the dot product of the vectors @x@ and @y@, setting
+    @res@ to \(s + (-1)^{subtract} \sum_{i=0}^{len-1} x_i y_i\).
+
+    The parameter @subtract@ must be 0 or 1.
+    The length @len@ is allowed to be negative, which is equivalent
+    to a length of zero.
+    The parameters @xstep@ or @ystep@ specify a step length for
+    traversing subsequences of the vectors @x@ and @y@; either can be
+    negative to step in the reverse direction starting from
+    the initial pointer.
+    Aliasing is allowed between @res@ and @s@ but not between
+    @res@ and the entries of @x@ and @y@.
+
+    The version (a.k.a the default version) determines the optimal precision for each term
+    and performs all internal calculations using mpn arithmetic
+    with minimal overhead. This is the preferred way to compute a
+    dot product; it is generally much faster and more precise
+    than a simple loop. -}
+
+foreign import capi safe "arb.h arb_approx_dot" arbApproxDot :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> ArbVectorT -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
+{- ^ Computes an approximate dot product *without error bounds*.
     The radii of the inputs are ignored (only the midpoints are read)
-    and only the midpoint of the output is written.
+    and only the midpoint of the output is written. -}
 
-.. function:: void arb_dot_ui(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const ulong * y, slong ystep, slong len, slong prec)
-              void arb_dot_si(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const slong * y, slong ystep, slong len, slong prec)
-              void arb_dot_uiui(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const ulong * y, slong ystep, slong len, slong prec)
-              void arb_dot_siui(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const ulong * y, slong ystep, slong len, slong prec)
-              void arb_dot_fmpz(arb_t res, const arb_t initial, int subtract, arb_srcptr x, slong xstep, const fmpz * y, slong ystep, slong len, slong prec)
-
-    Equivalent to :func:`arb_dot`, but with integers in the array *y*.
+foreign import capi safe "arb.h arb_dot_ui" arbDotUI :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> Ptr CULLong -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
+{- ^ Equivalent to :func:`arb_dot`, but with integers in the array @y@.
     The *uiui* and *siui* versions take an array of double-limb integers
     as input; the *siui* version assumes that these represent signed
-    integers in two's complement form.
+    integers in two's complement form. -}
+
+foreign import capi safe "arb.h arb_dot_si" arbDotSI :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> Ptr CLLong -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
+{- ^ Equivalent to :func:`arb_dot`, but with integers in the array @y@.
+    The *uiui* and *siui* versions take an array of double-limb integers
+    as input; the *siui* version assumes that these represent signed
+    integers in two's complement form. -}
+
+foreign import capi safe "arb.h arb_dot_uiui" arbDotUIUI :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> Ptr CULLong -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
+{- ^ Equivalent to :func:`arb_dot`, but with integers in the array @y@.
+    The *uiui* and *siui* versions take an array of double-limb integers
+    as input; the *siui* version assumes that these represent signed
+    integers in two's complement form. -}
+
+foreign import capi safe "arb.h arb_dot_siui" arbDotSIUI :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> Ptr CULLong -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
+{- ^ Equivalent to :func:`arb_dot`, but with integers in the array @y@.
+    The *uiui* and *siui* versions take an array of double-limb integers
+    as input; the *siui* version assumes that these represent signed
+    integers in two's complement form. -}
+
+foreign import capi safe "arb.h arb_dot_fmpz" arbDotFmpz :: ArbT -- ^ res 
+  -> ArbT -- ^ s 
+  -> CInt -- ^ subtract
+  -> ArbVectorT -- ^ x 
+  -> CLong -- ^ xstep 
+  -> FmpzVectorT -- ^ y
+  -> CLong -- ^ ystep
+  -> CLong -- ^ len
+  -> CLong -- ^ prec 
+  -> IO ()
+{- ^ Equivalent to :func:`arb_dot`, but with integers in the array @y@.
+    The *uiui* and *siui* versions take an array of double-limb integers
+    as input; the *siui* version assumes that these represent signed
+    integers in two's complement form. -}
+
+
+ 
+-------------------------------------------------------------------------------
+
+foreign import capi safe "arb.h arb_sqrt" arbSqrt :: ArbT -- ^ z
+  -> ArbT -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets @z@ to the square root of @x@, rounded to @prec@ bits.
+
+    If \(x = m \pm x\) where \(m \ge r \ge 0\), the propagated error is bounded by
+    \(\sqrt{m} - \sqrt{m-r} = \sqrt{m} (1 - \sqrt{1 - r/m}) \le \sqrt{m} (r/m + (r/m)^2)/2\). -}
+
+foreign import capi safe "arb.h arb_sqrt_arf" arbSqrtArf :: ArbT -- ^ z
+  -> ArfT -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets @z@ to the square root of @x@, rounded to @prec@ bits.
+
+    If \(x = m \pm x\) where \(m \ge r \ge 0\), the propagated error is bounded by
+    \(\sqrt{m} - \sqrt{m-r} = \sqrt{m} (1 - \sqrt{1 - r/m}) \le \sqrt{m} (r/m + (r/m)^2)/2\). -}
+
+foreign import capi safe "arb.h arb_sqrt_fmpz" arbSqrtFmpz :: ArbT -- ^ z
+  -> FmpzT -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets @z@ to the square root of @x@, rounded to @prec@ bits.
+
+    If \(x = m \pm x\) where \(m \ge r \ge 0\), the propagated error is bounded by
+    \(\sqrt{m} - \sqrt{m-r} = \sqrt{m} (1 - \sqrt{1 - r/m}) \le \sqrt{m} (r/m + (r/m)^2)/2\). -}
+
+foreign import capi safe "arb.h arb_sqrt_ui" arbSqrtUI :: ArbT -- ^ z
+  -> CULong -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets @z@ to the square root of @x@, rounded to @prec@ bits.
+
+    If \(x = m \pm x\) where \(m \ge r \ge 0\), the propagated error is bounded by
+    \(\sqrt{m} - \sqrt{m-r} = \sqrt{m} (1 - \sqrt{1 - r/m}) \le \sqrt{m} (r/m + (r/m)^2)/2\). -}
+
+
+
+foreign import capi safe "arb.h arb_sqrtpos" arbSqrtpos :: ArbT -- ^ z
+  -> ArbT -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets @z@ to the square root of @x@, assuming that @x@ represents a
+    nonnegative number (i.e. discarding any negative numbers in the input
+    interval). -}
+
+
+foreign import capi safe "arb.h arb_hypot" arbHypot :: ArbT -- ^ z
+  -> ArbT -- ^ x
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @z@ to \(\sqrt{x^2 + y^2}\).
+
+foreign import capi safe "arb.h arb_rsqrt" arbRsqrt :: ArbT -- ^ z
+  -> ArbT -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @z@ to the reciprocal square root of @x@, rounded to @prec@ bits.
+-- At high precision, this is faster than computing a square root.
+
+foreign import capi safe "arb.h arb_rsqrt_ui" arbRsqrtUI :: ArbT -- ^ z
+  -> CULong -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @z@ to the reciprocal square root of @x@, rounded to @prec@ bits.
+-- At high precision, this is faster than computing a square root.
+
+foreign import capi safe "arb.h arb_sqrt1pm1" arbSqrt1PM1 :: ArbT -- ^ z
+  -> ArbT -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets \(z = \sqrt{1+x}-1\), computed accurately when \(x \approx 0\).
+
+foreign import capi safe "arb.h arb_root_ui" arbRootUI :: ArbT -- ^ z
+  -> ArbT -- ^ x
+  -> CULong -- ^ k 
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets @z@ to the @k@-th root of @x@, rounded to @prec@ bits.
+    This function selects between different algorithms. For large @k@,
+    it evaluates \(\exp(\log(x)/k)\). For small @k@, it uses @arf_root@
+    at the midpoint and computes a propagated error bound as follows:
+    if input interval is \([m-r, m+r]\) with \(r \le m\), the error is largest at
+    \(m-r\) where it satisfies
+    \[
+        m^{1/k} - (m-r)^{1/k} = m^{1/k} [1 - (1-r/m)^{1/k}]
+
+        = m^{1/k} [1 - \exp(\log(1-r/m)/k)]
+
+        \le m^{1/k} \min(1, -\log(1-r/m)/k)
+
+        = m^{1/k} \min(1, \log(1+r/(m-r))/k).
+    \]
+    This is evaluated using @mag_log1p@. -}
+
+foreign import capi safe "arb.h arb_root" arbRoot :: ArbT -- ^ z
+  -> ArbT -- ^ x
+  -> CULong -- ^ k 
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Alias for @arb_root_ui@, provided for backwards compatibility.
+
+foreign import capi safe "arb.h arb_sqr" arbSqr :: ArbT -- ^ y
+  -> ArbT -- ^ x
+  -> CLong -- ^ prec
+  -> IO ()
+-- ^ Sets @y@ to be the square of @x@.
+
+foreign import capi safe "arb.h arb_pow_fmpz_binexp" arbPowFmpzBinexp :: ArbT -- ^ y
+  -> ArbT -- ^ b
+  -> FmpzT -- ^ e
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(y = b^e\) using binary exponentiation (with an initial division
+    if \(e < 0\)). Provided that @b@ and @e@
+    are small enough and the exponent is positive, the exact power can be
+    computed by setting the precision to @arf_prec_exact@.
+
+    Note that these functions can get slow if the exponent is
+    extremely large (in such cases @arb_pow@ may be superior). -}
+
+foreign import capi safe "arb.h arb_pow_fmpz" arbPowFmpz :: ArbT -- ^ y
+  -> ArbT -- ^ b
+  -> FmpzT -- ^ e
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(y = b^e\) using binary exponentiation (with an initial division
+    if \(e < 0\)). Provided that @b@ and @e@
+    are small enough and the exponent is positive, the exact power can be
+    computed by setting the precision to @arf_prec_exact@.
+
+    Note that these functions can get slow if the exponent is
+    extremely large (in such cases @arb_pow@ may be superior). -}
+
+foreign import capi safe "arb.h arb_pow_ui" arbPowUI :: ArbT -- ^ y
+  -> ArbT -- ^ b
+  -> CULong -- ^ e
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(y = b^e\) using binary exponentiation (with an initial division
+    if \(e < 0\)). Provided that @b@ and @e@
+    are small enough and the exponent is positive, the exact power can be
+    computed by setting the precision to @arf_prec_exact@.
+
+    Note that these functions can get slow if the exponent is
+    extremely large (in such cases @arb_pow@ may be superior). -}
+
+foreign import capi safe "arb.h arb_ui_pow_ui" arbUIPowUI :: ArbT -- ^ y
+  -> CULong -- ^ b
+  -> CULong -- ^ e
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(y = b^e\) using binary exponentiation (with an initial division
+    if \(e < 0\)). Provided that @b@ and @e@
+    are small enough and the exponent is positive, the exact power can be
+    computed by setting the precision to @arf_prec_exact@.
+
+    Note that these functions can get slow if the exponent is
+    extremely large (in such cases @arb_pow@ may be superior). -}
+
+foreign import capi safe "arb.h arb_si_pow_ui" arbSIPowUI :: ArbT -- ^ y
+  -> CLong -- ^ b
+  -> CULong -- ^ e
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(y = b^e\) using binary exponentiation (with an initial division
+    if \(e < 0\)). Provided that @b@ and @e@
+    are small enough and the exponent is positive, the exact power can be
+    computed by setting the precision to @arf_prec_exact@.
+
+    Note that these functions can get slow if the exponent is
+    extremely large (in such cases @arb_pow@ may be superior). -}
+
+
+foreign import capi safe "arb.h arb_pow_fmpq" arbPowFmpq :: ArbT -- ^ y
+  -> ArbT -- ^ x
+  -> FmpqT -- ^ a
+  -> CLong -- ^ prec
+  -> IO ()
+{- ^ Sets \(y = b^e\), computed as \(y = (b^{1/q})^p\) if the denominator of
+    \(e = p/q\) is small, and generally as \(y = \exp(e \log b)\).
+
+    Note that this function can get slow if the exponent is
+    extremely large (in such cases @arb_pow@ may be superior). -}
+
+foreign import capi safe "arb.h arb_pow" arbPow :: ArbT -- ^ z
+  -> ArbT -- ^ x
+  -> ArbT -- ^ y
+  -> CLong -- ^ prec
+  -> IO ()
+{- Sets \(z = x^y\), computed using binary exponentiation if \(y\) is
+    a small exact integer, as \(z = (x^{1/2})^{2y}\) if \(y\) is a small exact
+    half-integer, and generally as \(z = \exp(y \log x)\), except giving the
+    obvious finite result if \(x\) is \(a \pm a\) and \(y\) is positive. -}
