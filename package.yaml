@@ -28,6 +28,9 @@ dependencies:
 - mtl
 - containers
 - pandoc-types
+- bytestring
+- language-c
+- filepath
 
 ghc-options:
 - -Wall

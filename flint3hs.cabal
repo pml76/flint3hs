@@ -56,8 +56,11 @@ library
       gmp
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , casing
     , containers
+    , filepath
+    , language-c
     , mtl
     , pandoc
     , pandoc-types
@@ -76,9 +79,12 @@ executable flint3hs-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , casing
     , containers
+    , filepath
     , flint3hs
+    , language-c
     , mtl
     , pandoc
     , pandoc-types
@@ -98,9 +104,12 @@ test-suite flint3hs-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
     , casing
     , containers
+    , filepath
     , flint3hs
+    , language-c
     , mtl
     , pandoc
     , pandoc-types
