@@ -15,6 +15,7 @@ module Data.Number.Flint.TH.Declaration (
   , enumInTypeSignature
   , isPtrCType
   , isSimpleCType
+  , typeDataToHaskellSignature
 ) where
 import qualified Language.C as CP
 import qualified Language.C.Analysis as Ast
