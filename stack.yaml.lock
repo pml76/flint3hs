@@ -3,56 +3,7 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages:
-- completed:
-    hackage: djot-0.1.2.2@sha256:9f4447e32a6d2e667753660ea791cb3b5557d4177169ea9ce03f619a8ed1302f,2558
-    pantry-tree:
-      sha256: 21d451d1130c9031e2435e0ffba3967523cb058f6050c33c35234009a9f02f9a
-      size: 2330
-  original:
-    hackage: djot-0.1.2.2
-- completed:
-    hackage: doclayout-0.5@sha256:36c81aa3849049588d46c3fb51cf23177e8cc08efab4bf0d0ed2fb0df764cc0e,2550
-    pantry-tree:
-      sha256: 05a1330d490ddf77e8a9393258bfd1f74b6ab878c61e636e08fa7330ebed858a
-      size: 1614
-  original:
-    hackage: doclayout-0.5
-- completed:
-    hackage: texmath-0.12.8.11@sha256:d9a8337947fbfca6a119931d87b9f8343691be837bdf884af059327dd0337012,6831
-    pantry-tree:
-      sha256: d5b2209375747331654f4cd1d64c2303ad78d9ddf2a092fc0bbafebc7d9c3cc0
-      size: 263077
-  original:
-    hackage: texmath-0.12.8.11
-- completed:
-    hackage: typst-0.6@sha256:02a4862294524294472d1e33e6c77825adb5e86ad512c2c7a70eb1542f9c2d82,3821
-    pantry-tree:
-      sha256: f224ed6500dc859fa461d9347714d5f0a9d3dd0813878a72fea06b255f610fb7
-      size: 149192
-  original:
-    hackage: typst-0.6
-- completed:
-    hackage: tls-2.0.6@sha256:bd83146d767b0a2f70b070128448423e2b008241dce1910f891953a917abe33c,6119
-    pantry-tree:
-      sha256: e87e4858c91947cb1795f68ae8b6dfc519ec0351cebbbfc259c5719441c0a077
-      size: 6451
-  original:
-    hackage: tls-2.0.6
-- completed:
-    hackage: typst-symbols-0.1.6@sha256:02bcb9ae8d9ec8d6ddcffbaeb387e83b29e657ce2b542ccbba62700cf425b2b1,1023
-    pantry-tree:
-      sha256: 6dc1e32f18c5b48f9eaddcfd44ae1ac5f1b1a0a604635c11c1a536074ec57107
-      size: 349
-  original:
-    hackage: typst-symbols-0.1.6
-- completed:
-    hackage: toml-parser-2.0.1.0@sha256:b6dc274c233ab6c3e43e1a3f3c93aa68d340cc73950fff273e1c6fb6ffd3e0dd,3843
-    pantry-tree:
-      sha256: 4395dedb277f33a1ff53e5b5d9164c01c2917b5bc5f4965e059b2497dc7666aa
-      size: 2305
-  original:
-    hackage: toml-parser-2.0.1.0
+packages: []
 snapshots:
 - completed:
     sha256: 1e32b51d9082fdf6f3bd92accc9dfffd4ddaf406404427fb10bf76d2bc03cbbb

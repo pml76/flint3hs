@@ -6,6 +6,7 @@
 module Data.Number.Flint.TH.Declaration (
     TypeConversionData(..)
   , TypeData(..)
+  , SourcePair(..)
   , describesFunctionType
   , typeConversionData
   , cTypeToHaskellType
@@ -26,15 +27,51 @@ import qualified Language.C.Data.Ident as Ast
 import qualified Language.C as Ast
 import Control.Monad.Error.Class ( MonadError(throwError) )
 import Data.Functor ((<&>))
+import Text.Casing
 
+data SourcePair = SourcePair { 
+  cLanguage :: Either Ast.Name String, 
+  haskellLanguage :: Either Ast.Name String
+  }
 
-data TypeData = SimpleType String
-              | EnumType String
-              | CompType String
+data TypeData = SimpleType SourcePair
+              | EnumType SourcePair
+              | CompType SourcePair
               | PtrType TypeData
               | ArrayType TypeData
               | FunctionType TypeData [TypeData]
-              | TypeDefType String TypeData
+              | TypeDefType SourcePair TypeData
+
+typeDataToHaskellSignature :: TypeData -> Either Ast.Name String 
+typeDataToHaskellSignature tt = 
+  case tt of 
+    (SimpleType s) -> haskellLanguage s
+    (EnumType s) -> haskellLanguage s
+    (CompType s) -> haskellLanguage s
+
+    (PtrType t@(FunctionType _ _)) ->
+      typeDataToHaskellSignature t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
+    (PtrType t@(PtrType _)) -> 
+      typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+    (PtrType t@(ArrayType _)) ->
+      typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+    (PtrType t) ->
+      typeDataToHaskellSignature t >>= \s -> return $ "Ptr " ++ s
+
+    (ArrayType t@(FunctionType _ _)) ->
+      typeDataToHaskellSignature t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
+    (ArrayType t@(PtrType _)) -> 
+      typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+    (ArrayType t@(ArrayType _)) ->
+      typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+    (ArrayType t) ->
+      typeDataToHaskellSignature t >>= \s -> return $ "Ptr " ++ s
+
+    (FunctionType result params) -> do 
+      res <- typeDataToHaskellSignature result
+      return res
+
+
 
 data TypeConversionData = TypeConversionData {
     includesEnums :: Bool
@@ -109,7 +146,7 @@ cTypeToHaskellType =  do
     (Ast.TypeDefType (Ast.TypeDefRef (Ast.Ident name _ _) ty2 _) _ _) -> do
       tty <- newTypeConversionData ty2
       q <- lift $ runTypeConversion tty cTypeToHaskellType
-      setConvertedType (TypeDefType name) $ convertedTypes q
+      setConvertedType (TypeDefType SourcePair{cLanguage=Right name, haskellLanguage=Right $ camel name}) $ convertedTypes q
     t2 -> throwError . ErrorString $ "Unhandled type in cTypeToHaskellType: " ++ show t2
 
 functionParamToHaskellType :: Ast.ParamDecl -> TypeConversionMonad TypeConversionData
@@ -140,25 +177,25 @@ isSimpleCType (Ast.ArrayType t _ _ _) = isSimpleCType t
 isSimpleCType _ = False
 
 
-cIntegralTypeNameToHaskell :: Ast.IntType -> TypeConversionMonad String
-cIntegralTypeNameToHaskell Ast.TyBool    = return "CBool"
-cIntegralTypeNameToHaskell Ast.TyChar    = return "CChar"
-cIntegralTypeNameToHaskell Ast.TySChar   = return "CSChar"
-cIntegralTypeNameToHaskell Ast.TyUChar   = return "CUChar"
-cIntegralTypeNameToHaskell Ast.TyShort   = return "CShort"
-cIntegralTypeNameToHaskell Ast.TyUShort  = return "CUShort"
-cIntegralTypeNameToHaskell Ast.TyInt     = return "CInt"
-cIntegralTypeNameToHaskell Ast.TyUInt    = return "CUInt"
-cIntegralTypeNameToHaskell Ast.TyLong    = return "CLong"
-cIntegralTypeNameToHaskell Ast.TyULong   = return "CULong"
-cIntegralTypeNameToHaskell Ast.TyLLong   = return "CLLong"
-cIntegralTypeNameToHaskell Ast.TyULLong  = return "CULLong"
+cIntegralTypeNameToHaskell :: Ast.IntType -> TypeConversionMonad SourcePair
+cIntegralTypeNameToHaskell Ast.TyBool    = return SourcePair{cLanguage=Right "bool", haskellLanguage=Right "CBool"}
+cIntegralTypeNameToHaskell Ast.TyChar    = return SourcePair{cLanguage=Right "char", haskellLanguage=Right "CChar"}
+cIntegralTypeNameToHaskell Ast.TySChar   = return SourcePair{cLanguage=Right "signed char", haskellLanguage=Right "CSChar"}
+cIntegralTypeNameToHaskell Ast.TyUChar   = return SourcePair{cLanguage=Right "unsigned char", haskellLanguage=Right "CUChar"}
+cIntegralTypeNameToHaskell Ast.TyShort   = return SourcePair{cLanguage=Right "signed short", haskellLanguage=Right "CShort"}
+cIntegralTypeNameToHaskell Ast.TyUShort  = return SourcePair{cLanguage=Right "unsigned short", haskellLanguage=Right "CUShort"}
+cIntegralTypeNameToHaskell Ast.TyInt     = return SourcePair{cLanguage=Right "signed int", haskellLanguage=Right "CInt"}
+cIntegralTypeNameToHaskell Ast.TyUInt    = return SourcePair{cLanguage=Right "unsigned int", haskellLanguage=Right "CUInt"}
+cIntegralTypeNameToHaskell Ast.TyLong    = return SourcePair{cLanguage=Right "signed long", haskellLanguage=Right "CLong"}
+cIntegralTypeNameToHaskell Ast.TyULong   = return SourcePair{cLanguage=Right "unsigned long", haskellLanguage=Right "CULong"}
+cIntegralTypeNameToHaskell Ast.TyLLong   = return SourcePair{cLanguage=Right "signed long long", haskellLanguage=Right "CLLong"}
+cIntegralTypeNameToHaskell Ast.TyULLong  = return SourcePair{cLanguage=Right "unsigned long long", haskellLanguage=Right "CULLong"}
 cIntegralTypeNameToHaskell Ast.TyInt128  = throwError $ ErrorString "128 bit integers are not supported"
 cIntegralTypeNameToHaskell Ast.TyUInt128 = throwError $ ErrorString "128 bit integers are not supported"
 
-cFloatTypeNameToHaskell :: Ast.FloatType -> TypeConversionMonad String
-cFloatTypeNameToHaskell Ast.TyFloat        = return "CFloat"
-cFloatTypeNameToHaskell Ast.TyDouble       = return "CDouble"
+cFloatTypeNameToHaskell :: Ast.FloatType -> TypeConversionMonad SourcePair
+cFloatTypeNameToHaskell Ast.TyFloat        = return SourcePair{cLanguage = Right "float", haskellLanguage=Right "CFloat"}
+cFloatTypeNameToHaskell Ast.TyDouble       = return SourcePair{cLanguage = Right "double", haskellLanguage=Right "CDouble"}
 cFloatTypeNameToHaskell Ast.TyLDouble      = throwError $ ErrorString "Long Double is not supported"
 cFloatTypeNameToHaskell (Ast.TyFloatN _ _) = throwError $ ErrorString "floatN is not supported"
 
@@ -168,12 +205,16 @@ isSimpleTypeName (Ast.TyIntegral _) = True
 isSimpleTypeName (Ast.TyFloating _ ) = True
 isSimpleTypeName _ = False
 
-cTypeNameToHaskell :: Ast.TypeName -> TypeConversionMonad (String -> TypeData, String)
-cTypeNameToHaskell Ast.TyVoid         = return (SimpleType, "()")
+cTypeNameToHaskell :: Ast.TypeName -> TypeConversionMonad (SourcePair -> TypeData, SourcePair)
+cTypeNameToHaskell Ast.TyVoid         = return (SimpleType, SourcePair{cLanguage=Right "void", haskellLanguage=Right "()"})
 cTypeNameToHaskell (Ast.TyIntegral t) = cIntegralTypeNameToHaskell t <&> (SimpleType,)
 cTypeNameToHaskell (Ast.TyFloating t) = cFloatTypeNameToHaskell t <&> (SimpleType,)
-cTypeNameToHaskell (Ast.TyComp (Ast.CompTypeRef (Ast.NamedRef (Ast.Ident name _ _)) _ _))  = return (CompType, name)
-cTypeNameToHaskell (Ast.TyComp (Ast.CompTypeRef (Ast.AnonymousRef (Ast.Name nameId)) _ _)) = return (CompType, "UnnamedNo" ++ show nameId)
-cTypeNameToHaskell (Ast.TyEnum (Ast.EnumTypeRef (Ast.NamedRef (Ast.Ident name _ _)) _ ))   = return (EnumType, name)
-cTypeNameToHaskell (Ast.TyEnum (Ast.EnumTypeRef (Ast.AnonymousRef (Ast.Name nameId)) _ ))  = return (EnumType, "UnnamedEnumNo" ++ show nameId)
+cTypeNameToHaskell (Ast.TyComp (Ast.CompTypeRef (Ast.NamedRef (Ast.Ident name _ _)) _ _))  = 
+  return (CompType, SourcePair{cLanguage=Right name, haskellLanguage=Right $ camel name})
+cTypeNameToHaskell (Ast.TyComp (Ast.CompTypeRef (Ast.AnonymousRef name) _ _)) = 
+  return (CompType, SourcePair{cLanguage=Left name, haskellLanguage=Left name})
+cTypeNameToHaskell (Ast.TyEnum (Ast.EnumTypeRef (Ast.NamedRef (Ast.Ident name _ _)) _ ))   = 
+  return (EnumType, SourcePair{cLanguage=Right name, haskellLanguage = Right $ camel name})
+cTypeNameToHaskell (Ast.TyEnum (Ast.EnumTypeRef (Ast.AnonymousRef name) _ ))  = 
+  return (EnumType, SourcePair{cLanguage=Left name, haskellLanguage=Left name})
 cTypeNameToHaskell t                  = throwError . ErrorString $ "unsupported type '" ++ show t ++ "' in cTypeNameToHaskell"

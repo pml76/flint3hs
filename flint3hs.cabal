@@ -66,8 +66,6 @@ library
     , filepath
     , language-c
     , mtl
-    , pandoc
-    , pandoc-types
     , template-haskell
     , text
     , transformers
@@ -91,8 +89,6 @@ executable flint3hs-exe
     , flint3hs
     , language-c
     , mtl
-    , pandoc
-    , pandoc-types
     , template-haskell
     , text
     , transformers
@@ -117,8 +113,6 @@ test-suite flint3hs-test
     , flint3hs
     , language-c
     , mtl
-    , pandoc
-    , pandoc-types
     , template-haskell
     , text
     , transformers
