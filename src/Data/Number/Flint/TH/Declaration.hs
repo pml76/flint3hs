@@ -28,6 +28,7 @@ import qualified Language.C as Ast
 import Control.Monad.Error.Class ( MonadError(throwError) )
 import Data.Functor ((<&>))
 import Text.Casing
+import Data.List (intercalate)
 
 data SourcePair = SourcePair { 
   cLanguage :: Either Ast.Name String, 
@@ -69,7 +70,18 @@ typeDataToHaskellSignature tt =
 
     (FunctionType result params) -> do 
       res <- typeDataToHaskellSignature result
-      return res
+      let res_s = case result of 
+                    (FunctionType _ _) -> "( " ++ res ++ " )"
+                    _ -> res
+      ps <- mapM (\param -> do 
+                              r <- typeDataToHaskellSignature param
+                              return $ case param of 
+                                          (FunctionType _ _) -> "( " ++ r ++ " )"
+                                          _ -> r
+                              ) params
+      (return . intercalate " -> ") (ps ++ [res_s])
+      
+    (TypeDefType s _) -> haskellLanguage s
 
 
 
