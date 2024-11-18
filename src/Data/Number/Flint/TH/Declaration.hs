@@ -35,6 +35,7 @@ data SourcePair = SourcePair {
   cLanguage :: Either Ast.Name String, 
   haskellLanguage :: Either Ast.Name String
   }
+  deriving(Show, Eq)
 
 data TypeData = SimpleType SourcePair
               | EnumType SourcePair
@@ -43,48 +44,7 @@ data TypeData = SimpleType SourcePair
               | ArrayType TypeData
               | FunctionType TypeData [TypeData]
               | TypeDefType SourcePair TypeData
-
-typeDataToHaskellSignature :: TypeData -> Either Ast.Name String 
-typeDataToHaskellSignature tt = 
-  case tt of 
-    (SimpleType s) -> haskellLanguage s
-    (EnumType s) -> haskellLanguage s
-    (CompType s) -> haskellLanguage s
-
-    (PtrType t@(FunctionType _ _)) ->
-      typeDataToHaskellSignature t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
-    (PtrType t@(PtrType _)) -> 
-      typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
-    (PtrType t@(ArrayType _)) ->
-      typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
-    (PtrType t) ->
-      typeDataToHaskellSignature t >>= \s -> return $ "Ptr " ++ s
-
-    (ArrayType t@(FunctionType _ _)) ->
-      typeDataToHaskellSignature t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
-    (ArrayType t@(PtrType _)) -> 
-      typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
-    (ArrayType t@(ArrayType _)) ->
-      typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
-    (ArrayType t) ->
-      typeDataToHaskellSignature t >>= \s -> return $ "Ptr " ++ s
-
-    (FunctionType result params) -> do 
-      res <- typeDataToHaskellSignature result
-      let res_s = case result of 
-                    (FunctionType _ _) -> "( " ++ res ++ " )"
-                    _ -> res
-      ps <- mapM (\param -> do 
-                              r <- typeDataToHaskellSignature param
-                              return $ case param of 
-                                          (FunctionType _ _) -> "( " ++ r ++ " )"
-                                          _ -> r
-                              ) params
-      (return . intercalate " -> ") (ps ++ [res_s])
-      
-    (TypeDefType s _) -> haskellLanguage s
-
-
+      deriving(Show, Eq)
 
 data TypeConversionData = TypeConversionData {
     includesEnums :: Bool
@@ -107,7 +67,14 @@ newTypeConversionData t = do
     return TypeConversionData{includesEnums = False, currentNodeInfo = currentNodeInfo s, convertedTypes = Nothing, ty = t}
 
 describesFunctionType :: TypeConversionData -> Bool
-describesFunctionType t = (length . convertedTypes) t > 1
+describesFunctionType t = 
+  case convertedTypes t of 
+    Nothing -> False 
+    Just a -> 
+      case a of 
+        (FunctionType _ _) -> True
+        _ -> False 
+
 
 
 runTypeConversion :: TypeConversionData -> TypeConversionMonad a -> Either ErrorString TypeConversionData

@@ -65,13 +65,20 @@ instance (TreeWalker CodeMonad) where
     (return . currentNodeInfo) s
 
 
+-- | enum values will be reported as declarations. We need to filter them out since they
+-- are handled in another way. 
+notIsEnumValue :: Ast.IdentDecl -> Bool
+notIsEnumValue = notIsEnumValue' . Ast.getVarDecl
+  where notIsEnumValue' (Ast.VarDecl _ _ ty) = notIsEnumValue'' ty
+        notIsEnumValue'' (Ast.DirectType (Ast.TyEnum _) _ _) = False
+        notIsEnumValue'' _ = True
+
 walkObjects :: CodeMonad ()
 walkObjects = do
-  objs <- getDeclarations
-  mapM_ (processIdentDecl_ . snd) $ Data.Map.toList objs
-
   typeDefs <- getTypeDefs
   mapM_ (processTypeDef_ . snd) $ Data.Map.toList typeDefs
+  objs <- getDeclarations
+  mapM_ (processIdentDecl_ . snd) . filter (notIsEnumValue . snd) $ Data.Map.toList objs
       where processIdentDecl_ decl = setNodeInfo (Ast.nodeInfo decl) >> (processVarDecl . Ast.getVarDecl) decl
             processTypeDef_ typeDef = do
               setNodeInfo (Ast.nodeInfo typeDef)
@@ -121,11 +128,11 @@ processTag (Ast.NamedRef (Ast.Ident name _ _)) (Ast.EnumDef (Ast.EnumType _ enum
   foldM_ (\i s -> do
           addHaskellCodeLine $ "  fromEnum " ++ s ++ " = " ++ show i
           return $ i + 1) (0::Int) haskellTypeConstructors
-  foldM_ (\i s -> do 
+  foldM_ (\i s -> do
           addHaskellCodeLine $ "  toEnum " ++ show i ++ " = " ++ s
           return $ i + 1) (0::Int) haskellTypeConstructors
   addCCodeLine $ name ++ " intTo" ++ pascal name ++ "(int p) {"
-  foldM_ (\i s -> do 
+  foldM_ (\i s -> do
           addCCodeLine $ "  if( p == " ++ show i ++ ") return " ++ s ++ ";"
           return $ i + 1 ) (0::Int) cNames
   addCCodeLine "}"
@@ -138,6 +145,61 @@ processTag (Ast.NamedRef (Ast.Ident name _ _)) (Ast.EnumDef (Ast.EnumType _ enum
 processTag s t = throwError . ErrorString $ "Unknown combination of SUERef '" ++ show s ++ "'and TagDef '" ++ show t ++ "'."
 
 
+typeDataToEnumMarshallHaskellFunctionDefiniton :: TypeData -> CodeMonad ()
+typeDataToEnumMarshallHaskellFunctionDefiniton tt = 
+  case tt of 
+    (FunctionType ret params) -> do return ()
+    t -> throwError . ErrorString $ "Can only create a marshalling function for function-types. Found: " ++ show t
+
+typeData2HaskellTypeSignature :: Declaration.TypeConversionData -> CodeMonad String
+typeData2HaskellTypeSignature tcd = do
+  case Declaration.convertedTypes tcd of
+    Nothing -> throwError . ErrorString $ "Cannot compose a type signature from Nothing"
+    Just t -> do
+      let s = typeDataToHaskellSignature t
+      case s of
+        Left (Ast.Name nameId) -> throwError . ErrorString $
+          "Cannot compose a Haskell type signature using unnamed types (" ++ show nameId ++ ") from: " ++ show (Declaration.convertedTypes tcd)
+        Right w -> return w
+    where typeDataToHaskellSignature :: TypeData -> Either Ast.Name String 
+          typeDataToHaskellSignature tt = 
+            case tt of 
+              (SimpleType s) -> haskellLanguage s
+              (EnumType s) -> haskellLanguage s
+              (CompType s) -> haskellLanguage s
+
+              (PtrType t@(FunctionType _ _)) ->
+                typeDataToHaskellSignature t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
+              (PtrType t@(PtrType _)) -> 
+                typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+              (PtrType t@(ArrayType _)) ->
+                typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+              (PtrType t) ->
+                typeDataToHaskellSignature t >>= \s -> return $ "Ptr " ++ s
+
+              (ArrayType t@(FunctionType _ _)) ->
+                typeDataToHaskellSignature t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
+              (ArrayType t@(PtrType _)) -> 
+                typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+              (ArrayType t@(ArrayType _)) ->
+                typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+              (ArrayType t) ->
+                typeDataToHaskellSignature t >>= \s -> return $ "Ptr " ++ s
+
+              (FunctionType result params) -> do 
+                res <- typeDataToHaskellSignature result
+                let res_s = case result of 
+                              (FunctionType _ _) -> "( " ++ res ++ " )"
+                              _ -> res
+                ps <- mapM (\param -> do 
+                                        r <- typeDataToHaskellSignature param
+                                        return $ case param of 
+                                                    (FunctionType _ _) -> "( " ++ r ++ " )"
+                                                    _ -> r
+                                        ) (reverse params)
+                (return . intercalate " -> ") (ps ++ [res_s])
+                
+              (TypeDefType s _) -> haskellLanguage s
 
 processTypeDef :: Ast.TypeDef -> CodeMonad ()
 processTypeDef (Ast.TypeDef ident@(Ast.Ident name _ _) t _ _) = do
@@ -153,7 +215,7 @@ processTypeDef (Ast.TypeDef ident@(Ast.Ident name _ _) t _ _) = do
     else do
       tty <- Declaration.typeConversionData t
       q <- lift $ Declaration.runTypeConversion tty Declaration.cTypeToHaskellType
-      let s = (intercalate " -> " . Declaration.convertedTypes) q
+      s <- typeData2HaskellTypeSignature q
       addHaskellCodeLine $ "newtype " ++ pascal name ++ " = " ++ pascal name ++ "{ " ++ camel name ++ " :: " ++ s ++ " } -> " ++ pascal name
 
 processVarDecl :: Ast.VarDecl -> CodeMonad ()
@@ -162,7 +224,7 @@ processVarDecl (Ast.VarDecl (Ast.VarName (Ast.Ident name _ _) _) _ ty) = do
   let header = fromMaybe "" filePath
   tty <- Declaration.typeConversionData ty
   q <- lift $ Declaration.runTypeConversion tty Declaration.cTypeToHaskellType
-  let s = (intercalate " -> " . Declaration.convertedTypes) q
+  s <- typeData2HaskellTypeSignature q
   if Declaration.describesFunctionType q
     then addHaskellCodeLine $ "foreign import capi safe \"" ++ header ++ " " ++ name ++ "\" " ++ camel name ++ " :: " ++ s
     else if Declaration.includesEnums q
