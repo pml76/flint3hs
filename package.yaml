@@ -31,6 +31,8 @@ dependencies:
 - bytestring
 - language-c
 - filepath
+- mtl 
+- transformers
 
 ghc-options:
 - -Wall
@@ -54,6 +56,11 @@ library:
   - Data.Number.Flint.Fmpq
   - Data.Number.Flint.Fmpz 
   - Data.Number.Flint.Mag
+
+  - Data.Number.Flint.TH.CodeMonad
+  - Data.Number.Flint.TH.Declaration
+  - Data.Number.Flint.TH.Error
+  - Data.Number.Flint.TH.TreeWalker
 
   # MPFR
   - Data.Number.Mpfr.Mpfr 
