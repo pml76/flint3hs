@@ -15,7 +15,8 @@ module Data.Number.Flint.TH.Declaration (
   , enumInTypeSignature
   , isPtrCType
   , isSimpleCType
-  , typeDataToHaskellSignature
+  , isEnumType
+  , containsEnumType
 ) where
 import qualified Language.C as CP
 import qualified Language.C.Analysis as Ast
@@ -28,11 +29,11 @@ import qualified Language.C.Data.Ident as Ast
 import qualified Language.C as Ast
 import Control.Monad.Error.Class ( MonadError(throwError) )
 import Data.Functor ((<&>))
-import Text.Casing
-import Data.List (intercalate)
+import Text.Casing ( camel, pascal )
 
-data SourcePair = SourcePair { 
-  cLanguage :: Either Ast.Name String, 
+
+data SourcePair = SourcePair {
+  cLanguage :: Either Ast.Name String,
   haskellLanguage :: Either Ast.Name String
   }
   deriving(Show, Eq)
@@ -54,6 +55,23 @@ data TypeConversionData = TypeConversionData {
 }
 
 
+isEnumType :: TypeData -> Bool
+isEnumType (EnumType _) = True
+isEnumType (TypeDefType _ t) = isEnumType t
+isEnumType _ = False
+
+
+containsEnumType :: TypeData -> Bool
+containsEnumType t =
+  case t of
+    (SimpleType _) -> False
+    (EnumType _) -> True
+    (CompType _ ) -> False
+    (PtrType tt) -> containsEnumType tt
+    (ArrayType tt) -> containsEnumType tt
+    (FunctionType r ps) -> containsEnumType r || any containsEnumType ps
+    (TypeDefType _ tt) -> containsEnumType tt
+
 typeConversionData :: (TreeWalker m) => Ast.Type -> m TypeConversionData
 typeConversionData t = do
   nodeInfo <- getNodeInfo
@@ -67,13 +85,13 @@ newTypeConversionData t = do
     return TypeConversionData{includesEnums = False, currentNodeInfo = currentNodeInfo s, convertedTypes = Nothing, ty = t}
 
 describesFunctionType :: TypeConversionData -> Bool
-describesFunctionType t = 
-  case convertedTypes t of 
-    Nothing -> False 
-    Just a -> 
-      case a of 
+describesFunctionType t =
+  case convertedTypes t of
+    Nothing -> False
+    Just a ->
+      case a of
         (FunctionType _ _) -> True
-        _ -> False 
+        _ -> False
 
 
 
@@ -126,7 +144,7 @@ cTypeToHaskellType =  do
     (Ast.TypeDefType (Ast.TypeDefRef (Ast.Ident name _ _) ty2 _) _ _) -> do
       tty <- newTypeConversionData ty2
       q <- lift $ runTypeConversion tty cTypeToHaskellType
-      setConvertedType (TypeDefType SourcePair{cLanguage=Right name, haskellLanguage=Right $ camel name}) $ convertedTypes q
+      setConvertedType (TypeDefType SourcePair{cLanguage=Right name, haskellLanguage=Right $ pascal name}) $ convertedTypes q
     t2 -> throwError . ErrorString $ "Unhandled type in cTypeToHaskellType: " ++ show t2
 
 functionParamToHaskellType :: Ast.ParamDecl -> TypeConversionMonad TypeConversionData
@@ -189,12 +207,12 @@ cTypeNameToHaskell :: Ast.TypeName -> TypeConversionMonad (SourcePair -> TypeDat
 cTypeNameToHaskell Ast.TyVoid         = return (SimpleType, SourcePair{cLanguage=Right "void", haskellLanguage=Right "()"})
 cTypeNameToHaskell (Ast.TyIntegral t) = cIntegralTypeNameToHaskell t <&> (SimpleType,)
 cTypeNameToHaskell (Ast.TyFloating t) = cFloatTypeNameToHaskell t <&> (SimpleType,)
-cTypeNameToHaskell (Ast.TyComp (Ast.CompTypeRef (Ast.NamedRef (Ast.Ident name _ _)) _ _))  = 
+cTypeNameToHaskell (Ast.TyComp (Ast.CompTypeRef (Ast.NamedRef (Ast.Ident name _ _)) _ _))  =
   return (CompType, SourcePair{cLanguage=Right name, haskellLanguage=Right $ camel name})
-cTypeNameToHaskell (Ast.TyComp (Ast.CompTypeRef (Ast.AnonymousRef name) _ _)) = 
+cTypeNameToHaskell (Ast.TyComp (Ast.CompTypeRef (Ast.AnonymousRef name) _ _)) =
   return (CompType, SourcePair{cLanguage=Left name, haskellLanguage=Left name})
-cTypeNameToHaskell (Ast.TyEnum (Ast.EnumTypeRef (Ast.NamedRef (Ast.Ident name _ _)) _ ))   = 
+cTypeNameToHaskell (Ast.TyEnum (Ast.EnumTypeRef (Ast.NamedRef (Ast.Ident name _ _)) _ ))   =
   return (EnumType, SourcePair{cLanguage=Right name, haskellLanguage = Right $ camel name})
-cTypeNameToHaskell (Ast.TyEnum (Ast.EnumTypeRef (Ast.AnonymousRef name) _ ))  = 
+cTypeNameToHaskell (Ast.TyEnum (Ast.EnumTypeRef (Ast.AnonymousRef name) _ ))  =
   return (EnumType, SourcePair{cLanguage=Left name, haskellLanguage=Left name})
 cTypeNameToHaskell t                  = throwError . ErrorString $ "unsupported type '" ++ show t ++ "' in cTypeNameToHaskell"
