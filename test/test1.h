@@ -15,4 +15,5 @@ typedef enum
 
 typedef int flint_err_t;
 
-void flint_throw(flint_err_t2 exc, const char * msg );
+void flint_throw(flint_err_t exc, const char * msg );
+flint_err_t2 flint_throw2(flint_err_t2 exc, const char * msg );
