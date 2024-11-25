@@ -29,6 +29,8 @@ import qualified Language.C as Ast
 import qualified Language.C.Analysis as Ast
 import qualified Language.C.Data.Ident as Ast
 import Text.Casing (camel, pascal)
+import Data.Number.Flint.TH.Declaration (SourcePair(cLanguage))
+import Data.Foldable (foldlM)
 
 data CodeData = CodeData
   { haskellCodeLinesOutput :: [String]
@@ -139,7 +141,7 @@ processTag (Ast.NamedRef (Ast.Ident name _ _)) (Ast.EnumDef (Ast.EnumType _ enum
     )
     (0 :: Int)
     haskellTypeConstructors
-  addCCodeLine $ name ++ " intTo" ++ pascal name ++ "(int p) {"
+  addCCodeLine $ name ++ " intTo" ++ pascal name ++ "(unsigned long p) {"
   foldM_
     ( \i s -> do
         addCCodeLine $ "  if( p == " ++ show i ++ ") return " ++ s ++ ";"
@@ -148,7 +150,7 @@ processTag (Ast.NamedRef (Ast.Ident name _ _)) (Ast.EnumDef (Ast.EnumType _ enum
     (0 :: Int)
     cNames
   addCCodeLine "}"
-  addCCodeLine $ "int " ++ camel name ++ "ToInt(" ++ name ++ " p) {"
+  addCCodeLine $ "unsigned long " ++ camel name ++ "ToInt(" ++ name ++ " p) {"
   foldM_
     ( \i s -> do
         addCCodeLine $ "  if( p == " ++ s ++ ") return " ++ show i ++ ";"
@@ -163,7 +165,7 @@ typeDataToEnumMarshallHaskellFunctionDefiniton :: String -> Declaration.TypeConv
 typeDataToEnumMarshallHaskellFunctionDefiniton name tcd =
   case Declaration.convertedTypes tcd of
     Nothing -> throwError . ErrorString $ "Cannot compose a marshalling Haskell function from Nothing"
-    Just t -> typeData2EnumMarshallHaskellFunctionDefintion 
+    Just t -> typeData2EnumMarshallHaskellFunctionDefintion
       where typeData2EnumMarshallHaskellFunctionDefintion :: CodeMonad ()
             typeData2EnumMarshallHaskellFunctionDefintion = do
               case t of
@@ -172,21 +174,77 @@ typeDataToEnumMarshallHaskellFunctionDefiniton name tcd =
                   addHaskellCodeLine $ name ++ " :: " ++ typeSignature
                   let mod_ret = if Declaration.isEnumType ret then "toEnum . fromIntegral $ " else ""
                   addHaskellCodeLine $ name ++ snd (foldr (\a (i,s) -> (i+1,s ++ a ++ show i)) (0::Int, "") (replicate (length params) " a"))
-                                            ++ " = " ++ mod_ret ++ name ++ "_" ++ snd (foldr (\a (i,s) -> 
+                                            ++ " = " ++ mod_ret ++ name ++ "_" ++ snd (foldr (\a (i,s) ->
                                               (i+1, s ++ if Declaration.isEnumType a then " (fromEnum . fromIntegral $ a" ++ show i ++ ")" else " a" ++ show i)) (0::Int, "") params)
                 tt -> throwError . ErrorString $ "Can only create a marshalling function for function-types. Found: " ++ show tt
 
 typeDataToEnumMarshallCFunctionDefinition :: String -> Declaration.TypeConversionData -> CodeMonad()
-typeDataToEnumMarshallCFunctionDefinition name tcd = 
-  case Declaration.convertedTypes tcd of 
+typeDataToEnumMarshallCFunctionDefinition name tcd =
+  case Declaration.convertedTypes tcd of
     Nothing -> throwError . ErrorString $ "Cannot compose a marshalling C function from Nothing"
-    Just t -> typeDataToEnumMarshallCFunctionDefinition
-      where typeDataToEnumMarshallCFunctionDefinition :: CodeMonad ()
-            typeDataToEnumMarshallCFunctionDefinition = do 
-              case t of 
-                (Declaration.FunctionType ret params) -> do 
-                  
+    Just t -> typeData2EnumMarshallCFunctionDefinition
+      where typeData2EnumMarshallCFunctionDefinition :: CodeMonad ()
+            typeData2EnumMarshallCFunctionDefinition = do
+              case t of
+                (Declaration.FunctionType ret params) -> do
+                  typeSignature <- typeData2CTypeSignature True t
+                  addCCodeLine $ (typeSignature . Just) (name ++"_") ++ " {"
+                  retTypeName <- typeData2CTypeSignature False ret
+                  let (retL, retR) = if Declaration.isEnumType ret then ("from" ++ (pascal . retTypeName) Nothing ++ "(",")") else ("","")
+                  ps <- fmap (intercalate ", " . snd) $ foldlM (\(i, s) p -> do
+                      paramTypeName <- typeData2CTypeSignature False p
+                      return (i+1,if Declaration.isEnumType p
+                        then ("intTo" ++ (pascal . paramTypeName) Nothing ++ " (a" ++ show i ++ ")") : s
+                        else ("a" ++ show i) : s)
+                      ) (0::Int, []) $ params
+                  addCCodeLine $ "  " ++ retL ++ name ++ "(" ++ ps ++ ")" ++ retR
+                  addCCodeLine "}"
                 tt -> throwError . ErrorString $ "Can only create marshalling C function from function-typs. Found: " ++ show tt
+
+-- | Convert a given TypeData into a C type signature. 
+-- 
+-- This function returns a functions that converts a Maybe String into a c-type-signature. 
+-- When given Nothing this function returns an anonymous type signature. Then given a "Just s" it 
+-- returns a type declaration of the variable s. 
+--
+-- The flag indicates whether we want to apply the EnumType-to-CULong conversion
+typeData2CTypeSignature :: Bool -> Declaration.TypeData -> CodeMonad (Maybe String -> String)
+typeData2CTypeSignature flag t = case (flag, t) of
+
+    (_, Declaration.SimpleType tt) -> case cLanguage tt of
+      Left _ -> throwError . ErrorString $ "Cannot compose a C type signature from an unnamed type"
+      Right q -> return $ \name -> q ++ maybe "" (" " ++) name
+
+    (False, Declaration.EnumType tt) -> case cLanguage tt of
+      Left _ -> throwError . ErrorString $ "Cannot compose a C type signature from an unnamed type"
+      Right q -> return $ \name -> q ++ maybe "" (" " ++) name
+
+    (True, Declaration.EnumType _) -> return $ \name -> "unsigned long" ++ maybe "" (" " ++ ) name
+
+    (_, Declaration.CompType tt) -> case cLanguage tt of
+      Left _ -> throwError . ErrorString $ "Cannot compose a C type signature from an unnamed type"
+      Right q -> return $ \name -> q ++ maybe "" (" " ++) name
+
+    (b, Declaration.ArrayType tt) -> do
+      s <- typeData2CTypeSignature b tt
+      return $ \name -> s Nothing ++ maybe "" (" " ++) name ++ "[]"
+
+    (b, Declaration.PtrType tt) -> do
+      s <- typeData2CTypeSignature b tt
+      return $ \name -> s Nothing ++ maybe "" (" *" ++) name
+
+    (b, Declaration.FunctionType ret params) -> do
+      retS <- typeData2CTypeSignature b ret
+      ps' <- mapM (typeData2CTypeSignature b) params
+      let ps = intercalate ", " . snd $ foldl (\(i,as) s -> (i+1,(s Nothing ++ " a" ++ show i) : as )) (0::Int, []) ps'
+      return $ \name -> retS name ++ "(" ++ ps ++ ")"
+
+    (b, Declaration.TypeDefType tt tty) -> case cLanguage tt of
+      Left _ -> throwError . ErrorString $ "Cannot compose a C type signature from an unnamed type"
+      Right q -> if b && Declaration.isEnumType tty
+        then return $ \name -> "unsigned long" ++ maybe "" (" " ++) name
+        else return $ \name -> q ++ maybe "" (" " ++) name
+
 
 typeData2HaskellTypeSignature :: Declaration.TypeConversionData -> CodeMonad String
 typeData2HaskellTypeSignature tcd = do
@@ -225,8 +283,10 @@ typeData2HaskellTypeSignature tcd = do
       (Declaration.FunctionType result params) -> do
         res <- typeDataToHaskellSignature result
         let res_s = case result of
-              (Declaration.FunctionType _ _) -> "( " ++ res ++ " )"
-              _ -> res
+              (Declaration.FunctionType _ _) -> "IO ( " ++ res ++ " )"
+              (Declaration.PtrType _ ) -> "IO ( " ++ res ++ ")"
+              (Declaration.ArrayType _) -> "IO ( " ++ res ++ ")"
+              _ -> "IO " ++ res
         ps <-
           mapM
             ( \param -> do
@@ -264,8 +324,9 @@ processVarDecl (Ast.VarDecl (Ast.VarName (Ast.Ident name _ _) _) _ ty) = do
   q <- lift $ Declaration.runTypeConversion tty Declaration.cTypeToHaskellType
   s <- typeData2HaskellTypeSignature q
   if Declaration.describesFunctionType q
-    then do 
+    then do
       typeDataToEnumMarshallHaskellFunctionDefiniton (camel name) q
+      typeDataToEnumMarshallCFunctionDefinition name q
       addHaskellCodeLine $ "foreign import capi safe \"" ++ header ++ " " ++ name ++ "\" " ++ camel name ++ " :: " ++ s
     else
       if Declaration.includesEnums q

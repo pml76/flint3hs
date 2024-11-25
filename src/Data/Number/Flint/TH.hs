@@ -33,6 +33,12 @@ handleConversion f m = do
           output (Right s) = putStrLn s
 
 
+outputResults :: [String] -> IO ()
+outputResults [] = return ()
+outputResults (a:as) = do
+  putStrLn a 
+  outputResults as
+
 parseCFile :: FilePath -> [String] -> IO ()
 parseCFile filePath outputFiles = do
   result <- CP.parseCFile (CP.newGCC "gcc") Nothing ["-I/mingw64/include", "-I/mingw64/include/flint"] filePath
@@ -45,7 +51,9 @@ parseCFile filePath outputFiles = do
                 res = CodeMonad.runCodeMonad cd CodeMonad.walkObjects
             case res of
               Left e -> print e
-              Right c -> print $ CodeMonad.haskellCodeLinesOutput c
+              Right c -> do 
+                outputResults . reverse $ CodeMonad.haskellCodeLinesOutput c
+                outputResults . reverse $ CodeMonad.cCodeLinesOutput c 
             -- handleConversion processDeclaration . Data.Map.filter (isDeclarationInOutputFiles outputFiles) $ AST.gObjs (fst q)
             -- handleConversion processTypeDef . Data.Map.filter (isTypeDefInOutputFile outputFiles) $ Ast.gTypeDefs (fst q)
             -- handleConversion processTag . Data.Map.filter (isTagInOutputFile outputFiles ) $ Ast.gTags (fst q)
