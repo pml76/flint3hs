@@ -37,17 +37,21 @@ data CodeData = CodeData
   , cCodeLinesOutput :: [String]
   , currentNodeInfo :: Maybe Ast.NodeInfo
   , globalDeclarations :: Ast.GlobalDecls
-  , outputFiles :: [String]
+  , filesToConsider :: [String]
+  , outputHaskellFile :: String 
+  , outputCFile :: String
   }
 
-codeData :: [String] -> Ast.GlobalDecls -> CodeData
-codeData output gDecls =
+codeData :: [String] -> String -> String -> Ast.GlobalDecls -> CodeData
+codeData files oHaskellFile oCFile gDecls =
   CodeData
     { haskellCodeLinesOutput = []
     , cCodeLinesOutput = []
     , currentNodeInfo = Nothing
     , globalDeclarations = gDecls
-    , outputFiles = output
+    , filesToConsider = files
+    , outputHaskellFile = oHaskellFile
+    , outputCFile = oCFile
     }
 
 type CodeMonad = StateT CodeData (Either ErrorString)
@@ -90,17 +94,17 @@ walkObjects = do
 getDeclarations :: CodeMonad (Data.Map.Map Ast.Ident Ast.IdentDecl)
 getDeclarations = do
   cd <- get
-  return . Data.Map.filter (nodeStemsFromOutputFiles $ outputFiles cd) $ Ast.gObjs (globalDeclarations cd)
+  return . Data.Map.filter (nodeStemsFromFilesToConsider $ filesToConsider cd) $ Ast.gObjs (globalDeclarations cd)
 
 getTags :: CodeMonad (Data.Map.Map Ast.SUERef Ast.TagDef)
 getTags = do
   cd <- get
-  return . Data.Map.filter (nodeStemsFromOutputFiles $ outputFiles cd) $ Ast.gTags (globalDeclarations cd)
+  return . Data.Map.filter (nodeStemsFromFilesToConsider $ filesToConsider cd) $ Ast.gTags (globalDeclarations cd)
 
 getTypeDefs :: CodeMonad (Data.Map.Map Ast.Ident Ast.TypeDef)
 getTypeDefs = do
   cd <- get
-  return . Data.Map.filter (nodeStemsFromOutputFiles $ outputFiles cd) $ Ast.gTypeDefs (globalDeclarations cd)
+  return . Data.Map.filter (nodeStemsFromFilesToConsider $ filesToConsider cd) $ Ast.gTypeDefs (globalDeclarations cd)
 
 setNodeInfo :: Ast.NodeInfo -> CodeMonad ()
 setNodeInfo n = do
@@ -344,12 +348,12 @@ processVarDecl (Ast.VarDecl (Ast.VarName (Ast.Ident name _ _) _) _ ty) = do
           addHaskellCodeLine $ "foreign import capi safe \"" ++ header ++ " value " ++ name ++ "\" " ++ camel name ++ " :: " ++ s
 processVarDecl _ = throwError . ErrorString $ "Unhanded VarDecl in processVarDecl"
 
-nodeStemsFromOutputFiles :: (Ast.CNode a) => [String] -> a -> Bool
-nodeStemsFromOutputFiles as d = nodeInfoInOutputFiles as $ Ast.nodeInfo d
+nodeStemsFromFilesToConsider :: (Ast.CNode a) => [String] -> a -> Bool
+nodeStemsFromFilesToConsider as d = nodeInfoInFilesToConsider as $ Ast.nodeInfo d
 
-nodeInfoInOutputFiles :: [String] -> Ast.NodeInfo -> Bool
-nodeInfoInOutputFiles [] _ = False
-nodeInfoInOutputFiles _ (Ast.OnlyPos _ _) = False
-nodeInfoInOutputFiles (a : as) nodeInfo = (a == (Ast.posFile . Ast.posOfNode) nodeInfo) || nodeInfoInOutputFiles as nodeInfo
+nodeInfoInFilesToConsider :: [String] -> Ast.NodeInfo -> Bool
+nodeInfoInFilesToConsider [] _ = False
+nodeInfoInFilesToConsider _ (Ast.OnlyPos _ _) = False
+nodeInfoInFilesToConsider (a : as) nodeInfo = (a == (Ast.posFile . Ast.posOfNode) nodeInfo) || nodeInfoInFilesToConsider as nodeInfo
 
 

@@ -40,22 +40,22 @@ outputResults (a:as) = do
   outputResults as
 
 parseCFile :: FilePath -> [String] -> IO ()
-parseCFile filePath outputFiles = do
+parseCFile filePath files = do
   result <- CP.parseCFile (CP.newGCC "gcc") Nothing ["-I/mingw64/include", "-I/mingw64/include/flint"] filePath
   case result of
        Right r ->
         let globalDecls = AST.runTrav () (AST.analyseAST r)
         in case globalDecls of
           Right q -> do
-            let cd = (CodeMonad.codeData outputFiles . fst) q
+            let cd = (CodeMonad.codeData files "t.hs" "t.h". fst) q
                 res = CodeMonad.runCodeMonad cd CodeMonad.walkObjects
             case res of
               Left e -> print e
               Right c -> do 
                 outputResults . reverse $ CodeMonad.haskellCodeLinesOutput c
                 outputResults . reverse $ CodeMonad.cCodeLinesOutput c 
-            -- handleConversion processDeclaration . Data.Map.filter (isDeclarationInOutputFiles outputFiles) $ AST.gObjs (fst q)
-            -- handleConversion processTypeDef . Data.Map.filter (isTypeDefInOutputFile outputFiles) $ Ast.gTypeDefs (fst q)
-            -- handleConversion processTag . Data.Map.filter (isTagInOutputFile outputFiles ) $ Ast.gTags (fst q)
+            -- handleConversion processDeclaration . Data.Map.filter (isDeclarationInfiles files) $ AST.gObjs (fst q)
+            -- handleConversion processTypeDef . Data.Map.filter (isTypeDefInOutputFile files) $ Ast.gTypeDefs (fst q)
+            -- handleConversion processTag . Data.Map.filter (isTagInOutputFile files ) $ Ast.gTags (fst q)
           _ -> error "error1"
        Left e -> error $ "error2" ++ show e
