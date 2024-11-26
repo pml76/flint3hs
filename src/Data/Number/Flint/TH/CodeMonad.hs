@@ -38,20 +38,16 @@ data CodeData = CodeData
   , currentNodeInfo :: Maybe Ast.NodeInfo
   , globalDeclarations :: Ast.GlobalDecls
   , filesToConsider :: [String]
-  , outputHaskellFile :: String 
-  , outputCFile :: String
   }
 
-codeData :: [String] -> String -> String -> Ast.GlobalDecls -> CodeData
-codeData files oHaskellFile oCFile gDecls =
+codeData :: [String] -> Ast.GlobalDecls -> CodeData
+codeData files gDecls =
   CodeData
     { haskellCodeLinesOutput = []
     , cCodeLinesOutput = []
     , currentNodeInfo = Nothing
     , globalDeclarations = gDecls
     , filesToConsider = files
-    , outputHaskellFile = oHaskellFile
-    , outputCFile = oCFile
     }
 
 type CodeMonad = StateT CodeData (Either ErrorString)

@@ -30,6 +30,7 @@ dependencies:
 - filepath
 - mtl 
 - transformers
+- cmdargs
 
 ghc-options:
 - -Wall

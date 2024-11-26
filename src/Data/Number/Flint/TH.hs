@@ -19,6 +19,14 @@ import System.OsPath
 import qualified Data.Number.Flint.TH.CodeMonad as CodeMonad 
 import Data.Number.Flint.TH.Error ( ErrorString(..) ) 
 
+
+
+data CmdOptions = CmdOptions {
+    outputCFile :: String 
+  , outputHaskellFile :: String 
+}
+
+
 extractFilename :: CP.NodeInfo -> String
 extractFilename = map toChar . unpack . snd . splitFileName . pack . map unsafeFromChar . CP.posFile . CP.posOfNode
 
@@ -39,6 +47,9 @@ outputResults (a:as) = do
   putStrLn a 
   outputResults as
 
+
+
+
 parseCFile :: FilePath -> [String] -> IO ()
 parseCFile filePath files = do
   result <- CP.parseCFile (CP.newGCC "gcc") Nothing ["-I/mingw64/include", "-I/mingw64/include/flint"] filePath
@@ -47,7 +58,7 @@ parseCFile filePath files = do
         let globalDecls = AST.runTrav () (AST.analyseAST r)
         in case globalDecls of
           Right q -> do
-            let cd = (CodeMonad.codeData files "t.hs" "t.h". fst) q
+            let cd = (CodeMonad.codeData files . fst) q
                 res = CodeMonad.runCodeMonad cd CodeMonad.walkObjects
             case res of
               Left e -> print e
