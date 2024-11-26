@@ -191,12 +191,12 @@ typeDataToEnumMarshallCFunctionDefinition name tcd =
                   addCCodeLine $ (typeSignature . Just) (name ++"_") ++ " {"
                   retTypeName <- typeData2CTypeSignature False ret
                   let (retL, retR) = if Declaration.isEnumType ret then ("from" ++ (pascal . retTypeName) Nothing ++ "(",")") else ("","")
-                  ps <- fmap (intercalate ", " . snd) $ foldlM (\(i, s) p -> do
+                  ps <- intercalate ", " . snd <$> foldlM (\(i, s) p -> do
                       paramTypeName <- typeData2CTypeSignature False p
                       return (i+1,if Declaration.isEnumType p
                         then ("intTo" ++ (pascal . paramTypeName) Nothing ++ " (a" ++ show i ++ ")") : s
                         else ("a" ++ show i) : s)
-                      ) (0::Int, []) $ params
+                      ) (0::Int, []) params
                   addCCodeLine $ "  " ++ retL ++ name ++ "(" ++ ps ++ ")" ++ retR
                   addCCodeLine "}"
                 tt -> throwError . ErrorString $ "Can only create marshalling C function from function-typs. Found: " ++ show tt
@@ -251,38 +251,38 @@ typeData2HaskellTypeSignature flag tcd = do
   case Declaration.convertedTypes tcd of
     Nothing -> throwError . ErrorString $ "Cannot compose a type signature from Nothing"
     Just t -> do
-      let s = typeDataToHaskellSignature flag t
+      let s = typeDataToHaskellSignature t
       case s of
         Left (Ast.Name nameId) ->
           throwError . ErrorString $
             "Cannot compose a Haskell type signature using unnamed types (" ++ show nameId ++ ") from: " ++ show (Declaration.convertedTypes tcd)
         Right w -> return w
  where
-  typeDataToHaskellSignature :: Bool -> Declaration.TypeData -> Either Ast.Name String
-  typeDataToHaskellSignature flag tt =
+  typeDataToHaskellSignature :: Declaration.TypeData -> Either Ast.Name String
+  typeDataToHaskellSignature tt =
     case (flag, tt) of
       (_, Declaration.SimpleType s) -> Declaration.haskellLanguage s
       (False, Declaration.EnumType s) -> Declaration.haskellLanguage s
       (True, Declaration.EnumType _) -> Right "CULong"
       (_, Declaration.CompType s) -> Declaration.haskellLanguage s
-      (b, Declaration.PtrType t@(Declaration.FunctionType _ _)) ->
-        typeDataToHaskellSignature b t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
-      (b, Declaration.PtrType t@(Declaration.PtrType _)) ->
-        typeDataToHaskellSignature b t >>= \s -> return $ "Ptr (" ++ s ++ ")"
-      (b, Declaration.PtrType t@(Declaration.ArrayType _)) ->
-        typeDataToHaskellSignature b t >>= \s -> return $ "Ptr (" ++ s ++ ")"
-      (b, Declaration.PtrType t) ->
-        typeDataToHaskellSignature b t >>= \s -> return $ "Ptr " ++ s
-      (b, Declaration.ArrayType t@(Declaration.FunctionType _ _)) ->
-        typeDataToHaskellSignature b t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
-      (b, Declaration.ArrayType t@(Declaration.PtrType _)) ->
-        typeDataToHaskellSignature b t >>= \s -> return $ "Ptr (" ++ s ++ ")"
-      (b, Declaration.ArrayType t@(Declaration.ArrayType _)) ->
-        typeDataToHaskellSignature b t >>= \s -> return $ "Ptr (" ++ s ++ ")"
-      (b, Declaration.ArrayType t) ->
-        typeDataToHaskellSignature b t >>= \s -> return $ "Ptr " ++ s
-      (b, Declaration.FunctionType result params) -> do
-        res <- typeDataToHaskellSignature b result
+      (_, Declaration.PtrType t@(Declaration.FunctionType _ _)) ->
+        typeDataToHaskellSignature t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
+      (_, Declaration.PtrType t@(Declaration.PtrType _)) ->
+        typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+      (_, Declaration.PtrType t@(Declaration.ArrayType _)) ->
+        typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+      (_, Declaration.PtrType t) ->
+        typeDataToHaskellSignature t >>= \s -> return $ "Ptr " ++ s
+      (_, Declaration.ArrayType t@(Declaration.FunctionType _ _)) ->
+        typeDataToHaskellSignature t >>= \s -> return $ "FunPtr (" ++ s ++ ")"
+      (_, Declaration.ArrayType t@(Declaration.PtrType _)) ->
+        typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+      (_, Declaration.ArrayType t@(Declaration.ArrayType _)) ->
+        typeDataToHaskellSignature t >>= \s -> return $ "Ptr (" ++ s ++ ")"
+      (_, Declaration.ArrayType t) ->
+        typeDataToHaskellSignature t >>= \s -> return $ "Ptr " ++ s
+      (_, Declaration.FunctionType result params) -> do
+        res <- typeDataToHaskellSignature result
         let res_s = case result of
               (Declaration.FunctionType _ _) -> "IO ( " ++ res ++ " )"
               (Declaration.PtrType _ ) -> "IO ( " ++ res ++ ")"
@@ -291,14 +291,14 @@ typeData2HaskellTypeSignature flag tcd = do
         ps <-
           mapM
             ( \param -> do
-                r <- typeDataToHaskellSignature b param
+                r <- typeDataToHaskellSignature param
                 return $ case param of
                   (Declaration.FunctionType _ _) -> "( " ++ r ++ " )"
                   _ -> r
             )
             (reverse params)
         (return . intercalate " -> ") (ps ++ [res_s])
-      (b, Declaration.TypeDefType s tty ) -> if b && Declaration.isEnumType tty 
+      (b, Declaration.TypeDefType s tty ) -> if b && Declaration.isEnumType tty
         then Right "CULong"
         else Declaration.haskellLanguage s
 
@@ -339,7 +339,7 @@ processVarDecl (Ast.VarDecl (Ast.VarName (Ast.Ident name _ _) _) _ ty) = do
       if Declaration.includesEnums q
         {- enums are to be excludedhere since every entry on each enum will be a declaration -}
         then return ()
-        else do 
+        else do
           s <- typeData2HaskellTypeSignature False q
           addHaskellCodeLine $ "foreign import capi safe \"" ++ header ++ " value " ++ name ++ "\" " ++ camel name ++ " :: " ++ s
 processVarDecl _ = throwError . ErrorString $ "Unhanded VarDecl in processVarDecl"
